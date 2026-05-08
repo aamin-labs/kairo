@@ -5,12 +5,13 @@ import { sanitizeCardHtml } from "@/lib/card-html";
 import { importReviewDeck } from "@/lib/card-import";
 import { getReviewSnapshot, recordReviewAttempt } from "@/lib/review-session";
 import { clearDeck, loadDeck, saveDeck } from "@/lib/storage";
-import type { Feedback, Hint, Rating, ReviewCard } from "@/lib/types";
+import type { CoachingMessage, CoachingResponse, Feedback, Hint, Rating, ReviewCard } from "@/lib/types";
 
 const SAMPLE_CSV = `Question,Answer,Context,Explanation
 "When should you use **Good** instead of **Easy**?","Use **Good** when recall was solid but not automatic.","SRS","Easy should be reserved for cold, fluent retrieval."
 "What goes wrong if the LLM auto-rates every answer?","Learner loses judgment; weak calibration hides behind automation.","Review","The model can critique, but the learner owns memory confidence."`;
 const THEME_KEY = "kairo.theme";
+const MAX_FOLLOW_UP_REPLIES = 4;
 type Theme = "light" | "dark";
 
 export default function Home() {
@@ -19,8 +20,12 @@ export default function Home() {
   const [importError, setImportError] = useState("");
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [coachingThread, setCoachingThread] = useState<CoachingMessage[]>([]);
+  const [followUpReply, setFollowUpReply] = useState("");
+  const [hasOpenFollowUpPrompt, setHasOpenFollowUpPrompt] = useState(false);
   const [hint, setHint] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCoaching, setIsCoaching] = useState(false);
   const [isHinting, setIsHinting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [theme, setTheme] = useState<Theme>("light");
@@ -42,6 +47,8 @@ export default function Home() {
 
   const snapshot = useMemo(() => getReviewSnapshot(cards), [cards]);
   const current = snapshot.current;
+  const followUpReplyCount = coachingThread.filter((message) => message.role === "learner").length - 1;
+  const canReplyToFollowUp = hasOpenFollowUpPrompt && followUpReplyCount < MAX_FOLLOW_UP_REPLIES;
 
   function importCards() {
     try {
@@ -76,10 +83,48 @@ export default function Home() {
     try {
       const body = await postJson<Feedback>("/api/feedback", { card: cardPayload(current), learnerAnswer: answer });
       setFeedback(body);
+      setCoachingThread([
+        { role: "learner", text: answer },
+        ...(body.followUpPrompt ? [{ role: "coach" as const, text: body.followUpPrompt }] : [])
+      ]);
+      setHasOpenFollowUpPrompt(Boolean(body.followUpPrompt));
     } catch (error) {
       setApiError(error instanceof Error ? error.message : "Feedback failed.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function submitFollowUpReply() {
+    if (!current || !feedback || !followUpReply.trim() || followUpReplyCount >= MAX_FOLLOW_UP_REPLIES) return;
+
+    const learnerMessage: CoachingMessage = { role: "learner", text: followUpReply };
+    const nextThread = [...coachingThread, learnerMessage];
+    setCoachingThread(nextThread);
+    setFollowUpReply("");
+    setHasOpenFollowUpPrompt(false);
+    setIsCoaching(true);
+    setApiError("");
+
+    try {
+      const body = await postJson<CoachingResponse>("/api/coaching", {
+        card: cardPayload(current),
+        learnerAnswer: answer,
+        feedback,
+        thread: nextThread
+      });
+      setCoachingThread((existing) => [
+        ...existing,
+        { role: "coach", text: body.followUpPrompt ? `${body.text}\n\n${body.followUpPrompt}` : body.text }
+      ]);
+      setHasOpenFollowUpPrompt(Boolean(body.followUpPrompt));
+    } catch (error) {
+      setCoachingThread(coachingThread);
+      setFollowUpReply(learnerMessage.text);
+      setHasOpenFollowUpPrompt(true);
+      setApiError(error instanceof Error ? error.message : "Coaching failed.");
+    } finally {
+      setIsCoaching(false);
     }
   }
 
@@ -91,6 +136,7 @@ export default function Home() {
         cardId: current.id,
         answer,
         feedback,
+        coachingThread,
         rating
       })
     );
@@ -108,6 +154,9 @@ export default function Home() {
   function resetReviewState() {
     setAnswer("");
     setFeedback(null);
+    setCoachingThread([]);
+    setFollowUpReply("");
+    setHasOpenFollowUpPrompt(false);
     setHint("");
     setApiError("");
   }
@@ -185,39 +234,84 @@ export default function Home() {
             </div>
             <SafeHtml className="question" html={current.question} />
 
-            <label className="answer-label" htmlFor="answer">
-              Your answer
-            </label>
-            <textarea
-              id="answer"
-              className="answer-input"
-              value={answer}
-              onChange={(event) => setAnswer(event.target.value)}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                  event.preventDefault();
-                  void submitAnswer();
-                }
-              }}
-              placeholder="Type your answer before checking."
-              disabled={Boolean(feedback)}
-            />
+            {!feedback ? (
+              <>
+                <label className="answer-label" htmlFor="answer">
+                  Your answer
+                </label>
+                <textarea
+                  id="answer"
+                  className="answer-input"
+                  value={answer}
+                  onChange={(event) => setAnswer(event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                      event.preventDefault();
+                      void submitAnswer();
+                    }
+                  }}
+                  placeholder="Type your answer before checking."
+                />
 
-            {hint ? <p className="hint">{hint}</p> : null}
-            {apiError ? <p className="error">{apiError}</p> : null}
+                {hint ? <p className="hint">{hint}</p> : null}
+                {apiError ? <p className="error">{apiError}</p> : null}
 
-            <div className="actions">
-              <button className="secondary" onClick={requestHint} disabled={isHinting || Boolean(feedback)}>
-                {isHinting ? "Hinting..." : "Hint"}
-              </button>
-              <button
-                className="primary"
-                onClick={submitAnswer}
-                disabled={isSubmitting || !answer.trim() || Boolean(feedback)}
-              >
-                {isSubmitting ? "Checking..." : "Check answer"}
-              </button>
-            </div>
+                <div className="actions">
+                  <button className="secondary" onClick={requestHint} disabled={isHinting}>
+                    {isHinting ? "Hinting..." : "Hint"}
+                  </button>
+                  <button className="primary" onClick={submitAnswer} disabled={isSubmitting || !answer.trim()}>
+                    {isSubmitting ? "Checking..." : "Check answer"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <section className="coaching-thread" aria-label="Coaching thread">
+                <div className="messages">
+                  {coachingThread.map((message, index) => (
+                    <p className={`message ${message.role}`} key={`${message.role}-${index}`}>
+                      {message.text}
+                    </p>
+                  ))}
+                  {isCoaching ? <p className="message coach pending">Thinking...</p> : null}
+                </div>
+
+                {apiError ? <p className="error">{apiError}</p> : null}
+
+                {canReplyToFollowUp ? (
+                  <>
+                    <label className="answer-label" htmlFor="follow-up-reply">
+                      Reply
+                    </label>
+                    <textarea
+                      id="follow-up-reply"
+                      className="answer-input follow-up-input"
+                      value={followUpReply}
+                      onChange={(event) => setFollowUpReply(event.target.value)}
+                      onKeyDown={(event) => {
+                        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                          event.preventDefault();
+                          void submitFollowUpReply();
+                        }
+                      }}
+                      placeholder="Reply to the coach, or rate when ready."
+                      disabled={isCoaching}
+                    />
+                    <div className="actions">
+                      <button
+                        className="primary"
+                        onClick={submitFollowUpReply}
+                        disabled={isCoaching || !followUpReply.trim()}
+                      >
+                        {isCoaching ? "Sending..." : "Send reply"}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="hint">Rate when ready.</p>
+                )}
+              </section>
+            )}
           </article>
 
           <aside className="feedback-panel">

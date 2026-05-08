@@ -151,6 +151,10 @@ h2 {
   padding: 14px;
 }
 
+.follow-up-input {
+  min-height: 110px;
+}
+
 .csv-input:focus,
 .answer-input:focus {
   border-color: var(--accent);
@@ -286,6 +290,43 @@ h2 {
   padding: 10px 12px;
   background: var(--soft);
   color: var(--accent-strong);
+}
+
+.coaching-thread {
+  display: grid;
+  gap: 14px;
+}
+
+.messages {
+  display: grid;
+  gap: 10px;
+}
+
+.message {
+  width: fit-content;
+  max-width: min(86%, 620px);
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 11px 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.message.learner {
+  justify-self: end;
+  background: var(--accent);
+  color: white;
+}
+
+.message.coach {
+  justify-self: start;
+  background: var(--field);
+  color: var(--ink);
+}
+
+.message.pending {
+  color: var(--muted);
 }
 
 .feedback-panel {
