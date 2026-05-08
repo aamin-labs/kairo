@@ -1,5 +1,5 @@
 import { applyRating, reviewQueue } from "./scheduler.ts";
-import type { Feedback, Rating, ReviewCard } from "./types.ts";
+import type { CoachingMessage, Feedback, Rating, ReviewCard } from "./types.ts";
 
 export type ReviewSnapshot = {
   queue: ReviewCard[];
@@ -13,6 +13,7 @@ export type ReviewAttempt = {
   cardId: string;
   answer: string;
   feedback: Feedback;
+  coachingThread: CoachingMessage[];
   rating: Rating;
 };
 
@@ -41,6 +42,7 @@ export function recordReviewAttempt(
       lastAttempt: {
         answer: attempt.answer,
         feedback: attempt.feedback,
+        coachingThread: attempt.coachingThread,
         rating: attempt.rating,
         reviewedAt: now.toISOString()
       }

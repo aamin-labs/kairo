@@ -15,6 +15,7 @@ export type ReviewCard = ImportedCard & {
   lastAttempt?: {
     answer: string;
     feedback: Feedback;
+    coachingThread: CoachingMessage[];
     rating: Rating;
     reviewedAt: string;
   };
@@ -22,8 +23,21 @@ export type ReviewCard = ImportedCard & {
 
 export type Feedback = {
   text: string;
+  followUpPrompt?: string;
 };
 
 export type Hint = {
   hint: string;
+};
+
+export type CoachingRole = "learner" | "coach";
+
+export type CoachingMessage = {
+  role: CoachingRole;
+  text: string;
+};
+
+export type CoachingResponse = {
+  text: string;
+  followUpPrompt?: string;
 };

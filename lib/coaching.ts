@@ -1,18 +1,41 @@
-import type { Feedback, Hint, ImportedCard } from "./types";
+import type { CoachingMessage, CoachingResponse, Feedback, Hint, ImportedCard } from "./types";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
 export async function requestFeedback(card: ImportedCard, learnerAnswer: string): Promise<Feedback> {
   return requestJson<Feedback>(
-    "You are a terse Socratic Anki review coach. Stay grounded in the card fields. Return only JSON with one field, text. The text must be natural prose, not labeled sections or bullets. In 3-6 compact sentences: judge the learner's answer, name what worked, correct what is fuzzy, improve precision, and include one follow-up question only when useful.",
+    "You are a terse Socratic Anki review coach. Stay grounded in the card fields. Return only JSON. Separate critique from follow-up. In text, use 2-4 compact sentences to judge the learner's answer, name what worked, correct what is fuzzy, and improve precision. Put one optional Socratic follow-up question in followUpPrompt only when useful. Do not include the follow-up question inside text.",
     {
       task: "review_answer",
       expectedShape: {
-        text: "compact prose feedback, no labels, no bullets"
+        text: "compact prose feedback, no labels, no bullets, no follow-up question",
+        followUpPrompt: "optional one-sentence question that deepens recall"
       },
       card,
       learnerAnswer
+    }
+  );
+}
+
+export async function requestCoaching(
+  card: ImportedCard,
+  learnerAnswer: string,
+  feedback: Feedback,
+  thread: CoachingMessage[]
+): Promise<CoachingResponse> {
+  return requestJson<CoachingResponse>(
+    "You are continuing a short Socratic coaching thread for an Anki review. Stay grounded in the card fields and prior thread. Return only JSON. In text, briefly respond to the learner's latest reply: correct misconceptions, confirm useful precision, or clarify the missing idea. Put one optional next question in followUpPrompt only when it would deepen recall. Do not grade or rate the answer. Do not include the follow-up question inside text.",
+    {
+      task: "continue_coaching",
+      expectedShape: {
+        text: "brief coaching response, no labels, no bullets, no grade",
+        followUpPrompt: "optional one-sentence next question"
+      },
+      card,
+      learnerAnswer,
+      feedback,
+      thread
     }
   );
 }
@@ -30,7 +53,7 @@ export async function requestHint(card: ImportedCard): Promise<Hint> {
 
 async function requestJson<T>(instructions: string, input: unknown): Promise<T> {
   const text = await requestAnthropic(instructions, input);
-  return JSON.parse(stripCodeFence(text)) as T;
+  return parseJsonResponse<T>(text);
 }
 
 async function requestAnthropic(instructions: string, input: unknown): Promise<string> {
@@ -75,6 +98,33 @@ async function requestAnthropic(instructions: string, input: unknown): Promise<s
   return text;
 }
 
+export function parseJsonResponse<T>(text: string): T {
+  const jsonText = extractJsonObject(stripCodeFence(text));
+
+  try {
+    return JSON.parse(jsonText) as T;
+  } catch {
+    throw new Error("Model returned invalid JSON.");
+  }
+}
+
 function stripCodeFence(text: string): string {
   return text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+}
+
+function extractJsonObject(text: string): string {
+  const trimmed = text.trim();
+
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    return trimmed;
+  }
+
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("Model did not return JSON.");
+  }
+
+  return trimmed.slice(start, end + 1);
 }

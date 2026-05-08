@@ -5,8 +5,15 @@ import type { Feedback, ReviewCard } from "../lib/types.ts";
 
 const now = new Date("2026-05-08T08:00:00.000Z");
 const feedback: Feedback = {
-  text: "Good enough. Core idea present, but name the mechanism more precisely."
+  text: "Good enough. Core idea present, but name the mechanism more precisely.",
+  followUpPrompt: "What mechanism makes this work?"
 };
+const coachingThread = [
+  { role: "learner" as const, text: "my answer" },
+  { role: "coach" as const, text: "What mechanism makes this work?" },
+  { role: "learner" as const, text: "Spaced retrieval." },
+  { role: "coach" as const, text: "Correct. Name the schedule trigger next." }
+];
 
 test("snapshot exposes current card and queue counts", () => {
   const snapshot = getReviewSnapshot(
@@ -31,6 +38,7 @@ test("recording Good saves attempt and schedules a new card three days out", () 
       cardId: "target",
       answer: "my answer",
       feedback,
+      coachingThread,
       rating: "good"
     },
     now
@@ -42,6 +50,7 @@ test("recording Good saves attempt and schedules a new card three days out", () 
   assert.deepEqual(reviewed.lastAttempt, {
     answer: "my answer",
     feedback,
+    coachingThread,
     rating: "good",
     reviewedAt: "2026-05-08T08:00:00.000Z"
   });
@@ -54,6 +63,7 @@ test("recording Again returns card in ten minutes without changing interval", ()
       cardId: "target",
       answer: "missed",
       feedback,
+      coachingThread: [],
       rating: "again"
     },
     now
