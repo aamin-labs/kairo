@@ -5,15 +5,11 @@ const ANTHROPIC_VERSION = "2023-06-01";
 
 export async function requestFeedback(card: ImportedCard, learnerAnswer: string): Promise<Feedback> {
   return requestJson<Feedback>(
-    "You are a terse Socratic Anki review coach. Stay grounded in the card fields. Critique the learner's answer, improve precision, and ask at most one follow-up question when useful. Return only JSON.",
+    "You are a terse Socratic Anki review coach. Stay grounded in the card fields. Return only JSON with one field, text. The text must be natural prose, not labeled sections or bullets. In 3-6 compact sentences: judge the learner's answer, name what worked, correct what is fuzzy, improve precision, and include one follow-up question only when useful.",
     {
       task: "review_answer",
       expectedShape: {
-        verdict: "one short sentence",
-        whatWorked: "one short sentence",
-        missingOrFuzzy: "one short sentence",
-        precisionUpgrade: "one short sentence",
-        followUpQuestion: "one question, or empty string"
+        text: "compact prose feedback, no labels, no bullets"
       },
       card,
       learnerAnswer

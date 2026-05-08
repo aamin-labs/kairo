@@ -21,11 +21,7 @@ export type ReviewCard = ImportedCard & {
 };
 
 export type Feedback = {
-  verdict: string;
-  whatWorked: string;
-  missingOrFuzzy: string;
-  precisionUpgrade: string;
-  followUpQuestion: string;
+  text: string;
 };
 
 export type Hint = {

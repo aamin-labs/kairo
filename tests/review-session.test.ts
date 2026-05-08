@@ -5,11 +5,7 @@ import type { Feedback, ReviewCard } from "../lib/types.ts";
 
 const now = new Date("2026-05-08T08:00:00.000Z");
 const feedback: Feedback = {
-  verdict: "Good enough.",
-  whatWorked: "Core idea present.",
-  missingOrFuzzy: "Needs mechanism.",
-  precisionUpgrade: "Name the tradeoff.",
-  followUpQuestion: ""
+  text: "Good enough. Core idea present, but name the mechanism more precisely."
 };
 
 test("snapshot exposes current card and queue counts", () => {

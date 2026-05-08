@@ -181,7 +181,7 @@ h2 {
 
 .topbar {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 22px;
@@ -264,12 +264,12 @@ h2 {
   align-content: center;
 }
 
-.feedback-block {
+.feedback-prose {
   border-bottom: 1px solid var(--line);
   padding-bottom: 12px;
 }
 
-.feedback-block p,
+.feedback-prose p,
 .truth p,
 .truth div {
   margin-bottom: 0;

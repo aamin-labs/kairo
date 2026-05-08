@@ -177,6 +177,12 @@ export default function Home() {
               className="answer-input"
               value={answer}
               onChange={(event) => setAnswer(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  void submitAnswer();
+                }
+              }}
               placeholder="Type your answer before checking."
               disabled={Boolean(feedback)}
             />
@@ -206,19 +212,16 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <FeedbackBlock title="Verdict" text={feedback.verdict} />
-                <FeedbackBlock title="Worked" text={feedback.whatWorked} />
-                <FeedbackBlock title="Fuzzy" text={feedback.missingOrFuzzy} />
-                <FeedbackBlock title="Upgrade" text={feedback.precisionUpgrade} />
-                {feedback.followUpQuestion ? (
-                  <FeedbackBlock title="Follow-up" text={feedback.followUpQuestion} />
-                ) : null}
-
                 <div className="truth">
                   <h2>Expected answer</h2>
                   <SafeHtml html={current.answer} />
                   {current.explanation ? <SafeHtml className="explanation" html={current.explanation} /> : null}
                 </div>
+
+                <section className="feedback-prose">
+                  <h2>Feedback</h2>
+                  <p>{feedback.text}</p>
+                </section>
 
                 <div className="rating-grid">
                   <button onClick={() => rateCard("again")}>Again</button>
@@ -238,15 +241,6 @@ export default function Home() {
         </button>
       </footer>
     </main>
-  );
-}
-
-function FeedbackBlock({ title, text }: { title: string; text: string }) {
-  return (
-    <section className="feedback-block">
-      <h2>{title}</h2>
-      <p>{text || "None."}</p>
-    </section>
   );
 }
 
