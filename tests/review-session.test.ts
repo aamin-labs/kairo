@@ -56,6 +56,57 @@ test("recording Good saves attempt and schedules a new card three days out", () 
   });
 });
 
+test("recording a rating saves proposed review memory with the review time", () => {
+  const reviewed = recordReviewAttempt(
+    [card({ id: "target", seen: false })],
+    {
+      cardId: "target",
+      answer: "my answer",
+      feedback,
+      coachingThread,
+      rating: "good",
+      reviewMemory: {
+        learningEdge: "Distinguish solid recall from automatic recall.",
+        evidence: "Learner knew Good but was fuzzy about Easy."
+      }
+    },
+    now
+  )[0];
+
+  assert.deepEqual(reviewed.reviewMemory, {
+    learningEdge: "Distinguish solid recall from automatic recall.",
+    evidence: "Learner knew Good but was fuzzy about Easy.",
+    updatedAt: "2026-05-08T08:00:00.000Z"
+  });
+});
+
+test("recording a null review memory clears the previous learning edge", () => {
+  const reviewed = recordReviewAttempt(
+    [
+      card({
+        id: "target",
+        seen: true,
+        reviewMemory: {
+          learningEdge: "Name the scheduling trigger.",
+          evidence: "Learner gave a vague mechanism.",
+          updatedAt: "2026-05-07T08:00:00.000Z"
+        }
+      })
+    ],
+    {
+      cardId: "target",
+      answer: "clear answer",
+      feedback,
+      coachingThread: [],
+      rating: "easy",
+      reviewMemory: null
+    },
+    now
+  )[0];
+
+  assert.equal(reviewed.reviewMemory, undefined);
+});
+
 test("recording Again returns card in ten minutes without changing interval", () => {
   const reviewed = recordReviewAttempt(
     [card({ id: "target", seen: true, intervalDays: 5 })],

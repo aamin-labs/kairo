@@ -7,11 +7,20 @@ export type ImportedCard = {
   explanation: string;
 };
 
+export type ReviewMemory = {
+  learningEdge: string;
+  evidence: string;
+  updatedAt: string;
+};
+
+export type ReviewMemoryProposal = Omit<ReviewMemory, "updatedAt">;
+
 export type ReviewCard = ImportedCard & {
   id: string;
   intervalDays: number;
   dueAt: string;
   seen: boolean;
+  reviewMemory?: ReviewMemory;
   lastAttempt?: {
     answer: string;
     feedback: Feedback;
@@ -24,6 +33,7 @@ export type ReviewCard = ImportedCard & {
 export type Feedback = {
   text: string;
   followUpPrompt?: string;
+  reviewMemory?: ReviewMemoryProposal | null;
 };
 
 export type Hint = {
@@ -40,4 +50,5 @@ export type CoachingMessage = {
 export type CoachingResponse = {
   text: string;
   followUpPrompt?: string;
+  reviewMemory?: ReviewMemoryProposal | null;
 };

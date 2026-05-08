@@ -1,19 +1,36 @@
-import type { CoachingMessage, CoachingResponse, Feedback, Hint, ImportedCard } from "./types";
+import type {
+  CoachingMessage,
+  CoachingResponse,
+  Feedback,
+  Hint,
+  ImportedCard,
+  ReviewMemory,
+  ReviewMemoryProposal
+} from "./types";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
-export async function requestFeedback(card: ImportedCard, learnerAnswer: string): Promise<Feedback> {
+export async function requestFeedback(
+  card: ImportedCard,
+  learnerAnswer: string,
+  reviewMemory?: ReviewMemory
+): Promise<Feedback> {
   return requestJson<Feedback>(
-    "You are a terse Socratic Anki review coach. Stay grounded in the card fields. Return only JSON. Separate critique from follow-up. In text, use 2-4 compact sentences to judge the learner's answer, name what worked, correct what is fuzzy, and improve precision. Put one optional Socratic follow-up question in followUpPrompt only when useful. Do not include the follow-up question inside text.",
+    "You are a terse Socratic Anki review coach. Stay grounded in the card fields. Return only JSON. Separate critique from follow-up. If prior reviewMemory exists, compare the learner's current answer against that learning edge. In text, use 2-4 compact sentences to judge the learner's answer, name what worked, correct what is fuzzy, and improve precision. Put one optional Socratic follow-up question in followUpPrompt only when useful. Do not include the follow-up question inside text. Return reviewMemory as the current learning edge plus evidence, or null when no useful learning edge remains.",
     {
       task: "review_answer",
       expectedShape: {
         text: "compact prose feedback, no labels, no bullets, no follow-up question",
-        followUpPrompt: "optional one-sentence question that deepens recall"
+        followUpPrompt: "optional one-sentence question that deepens recall",
+        reviewMemory: {
+          learningEdge: "compact current fragile point for this learner on this card",
+          evidence: "brief reason from the learner's answer"
+        }
       },
       card,
-      learnerAnswer
+      learnerAnswer,
+      reviewMemory: reviewMemory ?? null
     }
   );
 }
@@ -22,20 +39,28 @@ export async function requestCoaching(
   card: ImportedCard,
   learnerAnswer: string,
   feedback: Feedback,
-  thread: CoachingMessage[]
+  thread: CoachingMessage[],
+  reviewMemory?: ReviewMemory,
+  proposedReviewMemory?: ReviewMemoryProposal | null
 ): Promise<CoachingResponse> {
   return requestJson<CoachingResponse>(
-    "You are continuing a short Socratic coaching thread for an Anki review. Stay grounded in the card fields and prior thread. Return only JSON. In text, briefly respond to the learner's latest reply: correct misconceptions, confirm useful precision, or clarify the missing idea. Put one optional next question in followUpPrompt only when it would deepen recall. Do not grade or rate the answer. Do not include the follow-up question inside text.",
+    "You are continuing a short Socratic coaching thread for an Anki review. Stay grounded in the card fields and prior thread. Use proposedReviewMemory as the current memory proposal for this attempt. Use prior reviewMemory after the current thread, not before it. Return only JSON. In text, briefly respond to the learner's latest reply: correct misconceptions, confirm useful precision, or clarify the missing idea. Put one optional next question in followUpPrompt only when it would deepen recall. Do not grade or rate the answer. Do not include the follow-up question inside text. Return reviewMemory as the updated current learning edge plus evidence, or null when no useful learning edge remains.",
     {
       task: "continue_coaching",
       expectedShape: {
         text: "brief coaching response, no labels, no bullets, no grade",
-        followUpPrompt: "optional one-sentence next question"
+        followUpPrompt: "optional one-sentence next question",
+        reviewMemory: {
+          learningEdge: "compact current fragile point for this learner on this card",
+          evidence: "brief reason from the learner's latest answer or coaching thread"
+        }
       },
       card,
       learnerAnswer,
       feedback,
-      thread
+      thread,
+      reviewMemory: reviewMemory ?? null,
+      proposedReviewMemory: proposedReviewMemory ?? null
     }
   );
 }

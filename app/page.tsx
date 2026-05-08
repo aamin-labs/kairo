@@ -5,7 +5,15 @@ import { sanitizeCardHtml } from "@/lib/card-html";
 import { importReviewDeck } from "@/lib/card-import";
 import { getReviewSnapshot, recordReviewAttempt } from "@/lib/review-session";
 import { clearDeck, loadDeck, saveDeck } from "@/lib/storage";
-import type { CoachingMessage, CoachingResponse, Feedback, Hint, Rating, ReviewCard } from "@/lib/types";
+import type {
+  CoachingMessage,
+  CoachingResponse,
+  Feedback,
+  Hint,
+  Rating,
+  ReviewCard,
+  ReviewMemoryProposal
+} from "@/lib/types";
 
 const SAMPLE_CSV = `Question,Answer,Context,Explanation
 "When should you use **Good** instead of **Easy**?","Use **Good** when recall was solid but not automatic.","SRS","Easy should be reserved for cold, fluent retrieval."
@@ -20,6 +28,7 @@ export default function Home() {
   const [importError, setImportError] = useState("");
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [proposedReviewMemory, setProposedReviewMemory] = useState<ReviewMemoryProposal | null | undefined>();
   const [coachingThread, setCoachingThread] = useState<CoachingMessage[]>([]);
   const [followUpReply, setFollowUpReply] = useState("");
   const [hasOpenFollowUpPrompt, setHasOpenFollowUpPrompt] = useState(false);
@@ -81,8 +90,13 @@ export default function Home() {
     setApiError("");
 
     try {
-      const body = await postJson<Feedback>("/api/feedback", { card: cardPayload(current), learnerAnswer: answer });
+      const body = await postJson<Feedback>("/api/feedback", {
+        card: cardPayload(current),
+        learnerAnswer: answer,
+        reviewMemory: current.reviewMemory
+      });
       setFeedback(body);
+      setProposedReviewMemory(body.reviewMemory);
       setCoachingThread([
         { role: "learner", text: answer },
         ...(body.followUpPrompt ? [{ role: "coach" as const, text: body.followUpPrompt }] : [])
@@ -111,8 +125,11 @@ export default function Home() {
         card: cardPayload(current),
         learnerAnswer: answer,
         feedback,
-        thread: nextThread
+        thread: nextThread,
+        reviewMemory: current.reviewMemory,
+        proposedReviewMemory
       });
+      if ("reviewMemory" in body) setProposedReviewMemory(body.reviewMemory);
       setCoachingThread((existing) => [
         ...existing,
         { role: "coach", text: body.followUpPrompt ? `${body.text}\n\n${body.followUpPrompt}` : body.text }
@@ -137,7 +154,8 @@ export default function Home() {
         answer,
         feedback,
         coachingThread,
-        rating
+        rating,
+        reviewMemory: proposedReviewMemory
       })
     );
     resetReviewState();
@@ -154,6 +172,7 @@ export default function Home() {
   function resetReviewState() {
     setAnswer("");
     setFeedback(null);
+    setProposedReviewMemory(undefined);
     setCoachingThread([]);
     setFollowUpReply("");
     setHasOpenFollowUpPrompt(false);

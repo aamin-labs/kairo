@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requestCoaching } from "@/lib/coaching";
-import type { CoachingMessage, Feedback, ImportedCard } from "@/lib/types";
+import type { CoachingMessage, Feedback, ImportedCard, ReviewMemory, ReviewMemoryProposal } from "@/lib/types";
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +9,8 @@ export async function POST(request: Request) {
       learnerAnswer?: string;
       feedback?: Feedback;
       thread?: CoachingMessage[];
+      reviewMemory?: ReviewMemory;
+      proposedReviewMemory?: ReviewMemoryProposal | null;
     };
 
     if (!body.card || typeof body.learnerAnswer !== "string" || !body.feedback || !Array.isArray(body.thread)) {
@@ -18,7 +20,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const coaching = await requestCoaching(body.card, body.learnerAnswer, body.feedback, body.thread);
+    const coaching = await requestCoaching(
+      body.card,
+      body.learnerAnswer,
+      body.feedback,
+      body.thread,
+      body.reviewMemory,
+      body.proposedReviewMemory
+    );
     return NextResponse.json(coaching);
   } catch (error) {
     return NextResponse.json(

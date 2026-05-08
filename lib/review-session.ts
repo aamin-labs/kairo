@@ -1,5 +1,5 @@
 import { applyRating, reviewQueue } from "./scheduler.ts";
-import type { CoachingMessage, Feedback, Rating, ReviewCard } from "./types.ts";
+import type { CoachingMessage, Feedback, Rating, ReviewCard, ReviewMemoryProposal } from "./types.ts";
 
 export type ReviewSnapshot = {
   queue: ReviewCard[];
@@ -15,6 +15,7 @@ export type ReviewAttempt = {
   feedback: Feedback;
   coachingThread: CoachingMessage[];
   rating: Rating;
+  reviewMemory?: ReviewMemoryProposal | null;
 };
 
 export function getReviewSnapshot(cards: ReviewCard[], now = new Date()): ReviewSnapshot {
@@ -37,7 +38,7 @@ export function recordReviewAttempt(
   return cards.map((card) => {
     if (card.id !== attempt.cardId) return card;
 
-    return {
+    const reviewedCard = {
       ...applyRating(card, attempt.rating, now),
       lastAttempt: {
         answer: attempt.answer,
@@ -45,6 +46,24 @@ export function recordReviewAttempt(
         coachingThread: attempt.coachingThread,
         rating: attempt.rating,
         reviewedAt: now.toISOString()
+      }
+    };
+
+    if (attempt.reviewMemory === undefined) {
+      return reviewedCard;
+    }
+
+    if (attempt.reviewMemory === null) {
+      const cardWithoutMemory = { ...reviewedCard };
+      delete cardWithoutMemory.reviewMemory;
+      return cardWithoutMemory;
+    }
+
+    return {
+      ...reviewedCard,
+      reviewMemory: {
+        ...attempt.reviewMemory,
+        updatedAt: now.toISOString()
       }
     };
   });
