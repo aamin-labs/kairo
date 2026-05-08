@@ -10,6 +10,8 @@ import type { Feedback, Hint, Rating, ReviewCard } from "@/lib/types";
 const SAMPLE_CSV = `Question,Answer,Context,Explanation
 "When should you use **Good** instead of **Easy**?","Use **Good** when recall was solid but not automatic.","SRS","Easy should be reserved for cold, fluent retrieval."
 "What goes wrong if the LLM auto-rates every answer?","Learner loses judgment; weak calibration hides behind automation.","Review","The model can critique, but the learner owns memory confidence."`;
+const THEME_KEY = "kairo.theme";
+type Theme = "light" | "dark";
 
 export default function Home() {
   const [cards, setCards] = useState<ReviewCard[]>([]);
@@ -21,14 +23,22 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHinting, setIsHinting] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
     setCards(loadDeck());
+    const savedTheme = window.localStorage.getItem(THEME_KEY);
+    if (savedTheme === "dark") setTheme("dark");
   }, []);
 
   useEffect(() => {
     if (cards.length > 0) saveDeck(cards);
   }, [cards]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
 
   const snapshot = useMemo(() => getReviewSnapshot(cards), [cards]);
   const current = snapshot.current;
@@ -102,9 +112,14 @@ export default function Home() {
     setApiError("");
   }
 
+  function toggleTheme() {
+    setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
+  }
+
   if (cards.length === 0) {
     return (
       <main className="shell import-shell">
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
         <section className="import-panel">
           <div>
             <p className="eyebrow">Kairo Review</p>
@@ -140,6 +155,7 @@ export default function Home() {
 
   return (
     <main className="shell">
+      <ThemeToggle theme={theme} onToggle={toggleTheme} />
       <header className="topbar">
         <div>
           <p className="eyebrow">Kairo Review</p>
@@ -241,6 +257,14 @@ export default function Home() {
         </button>
       </footer>
     </main>
+  );
+}
+
+function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+  return (
+    <button className="theme-toggle" type="button" onClick={onToggle} aria-pressed={theme === "dark"}>
+      {theme === "dark" ? "Light" : "Dark"}
+    </button>
   );
 }
 
