@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { sanitizeCardHtml } from "@/lib/card-html";
 import { importReviewDeck } from "@/lib/card-import";
 import { getReviewSnapshot, recordReviewAttempt } from "@/lib/review-session";
@@ -58,6 +58,42 @@ export default function Home() {
   const current = snapshot.current;
   const followUpReplyCount = coachingThread.filter((message) => message.role === "learner").length - 1;
   const canReplyToFollowUp = hasOpenFollowUpPrompt && followUpReplyCount < MAX_FOLLOW_UP_REPLIES;
+
+  const rateCard = useCallback(
+    (rating: Rating) => {
+      if (!current || !feedback) return;
+
+      setCards((existing) =>
+        recordReviewAttempt(existing, {
+          cardId: current.id,
+          answer,
+          feedback,
+          coachingThread,
+          rating,
+          reviewMemory: proposedReviewMemory
+        })
+      );
+      resetReviewState();
+    },
+    [answer, coachingThread, current, feedback, proposedReviewMemory]
+  );
+
+  useEffect(() => {
+    function handleRatingShortcut(event: KeyboardEvent) {
+      if (!current || !feedback || event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) {
+        return;
+      }
+
+      const rating = ratingForShortcut(event.key);
+      if (!rating) return;
+
+      event.preventDefault();
+      rateCard(rating);
+    }
+
+    window.addEventListener("keydown", handleRatingShortcut);
+    return () => window.removeEventListener("keydown", handleRatingShortcut);
+  }, [current, feedback, rateCard]);
 
   function importCards() {
     try {
@@ -143,22 +179,6 @@ export default function Home() {
     } finally {
       setIsCoaching(false);
     }
-  }
-
-  function rateCard(rating: Rating) {
-    if (!current || !feedback) return;
-
-    setCards((existing) =>
-      recordReviewAttempt(existing, {
-        cardId: current.id,
-        answer,
-        feedback,
-        coachingThread,
-        rating,
-        reviewMemory: proposedReviewMemory
-      })
-    );
-    resetReviewState();
   }
 
   function resetAll() {
@@ -353,10 +373,18 @@ export default function Home() {
                 </section>
 
                 <div className="rating-grid">
-                  <button onClick={() => rateCard("again")}>Again</button>
-                  <button onClick={() => rateCard("hard")}>Hard</button>
-                  <button onClick={() => rateCard("good")}>Good</button>
-                  <button onClick={() => rateCard("easy")}>Easy</button>
+                  <button onClick={() => rateCard("again")}>
+                    Again <kbd>1</kbd>
+                  </button>
+                  <button onClick={() => rateCard("hard")}>
+                    Hard <kbd>2</kbd>
+                  </button>
+                  <button onClick={() => rateCard("good")}>
+                    Good <kbd>3</kbd>
+                  </button>
+                  <button onClick={() => rateCard("easy")}>
+                    Easy <kbd>4</kbd>
+                  </button>
                 </div>
               </>
             )}
@@ -392,6 +420,20 @@ function cardPayload(card: ReviewCard) {
     context: card.context,
     explanation: card.explanation
   };
+}
+
+function ratingForShortcut(key: string): Rating | undefined {
+  if (key === "1") return "again";
+  if (key === "2") return "hard";
+  if (key === "3") return "good";
+  if (key === "4") return "easy";
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+
+  const tagName = target.tagName.toLowerCase();
+  return tagName === "input" || tagName === "textarea" || target.isContentEditable;
 }
 
 async function postJson<T>(url: string, payload: unknown): Promise<T> {
