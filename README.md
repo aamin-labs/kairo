@@ -20,6 +20,7 @@ ANTHROPIC_MODEL=claude-sonnet-4-6
 ## MVP Scope
 
 - Paste CSV with `Question,Answer,Context,Explanation`.
+- Add more CSV cards later without resetting existing review progress.
 - Review one local deck from browser storage.
 - Ask for one hint when stuck.
 - Submit typed answer for LLM critique.

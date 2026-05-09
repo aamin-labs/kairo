@@ -44,6 +44,14 @@ _Avoid_: Mistake log, weakness list
 The brief reason a learning edge was selected from the learner's latest answer or coaching thread.
 _Avoid_: Audit log, transcript
 
+**Append import**:
+Adding imported cards to the current deck without changing existing cards or review progress.
+_Avoid_: Re-import, reset, replace import
+
+**Duplicate card**:
+An imported card with the same question and answer as a card already in the deck.
+_Avoid_: Repeat, copy
+
 ## Relationships
 
 - **Feedback** may include one **Follow-up prompt**
@@ -70,6 +78,10 @@ _Avoid_: Audit log, transcript
 - **Coaching response** may update proposed **Review memory** before the learner gives a **Rating**
 - When multiple proposed **Review memory** updates exist in one attempt, the latest proposal wins
 - Persisted **Review memory** contains the current **Learning edge**, its **Evidence**, and when it was updated
+- An **Append import** preserves existing cards, ratings, scheduling, attempts, and **Review memory**
+- An **Append import** adds new cards and skips **Duplicate cards** without updating existing card fields
+- First-time deck import and **Append import** are separate learner actions
+- Cards added through **Append import** enter the deck as new cards eligible for immediate review
 
 ## Example dialogue
 
@@ -86,3 +98,6 @@ _Avoid_: Audit log, transcript
 - "saving token costs" could imply skipping model calls; resolved: the MVP uses **Review memory** to improve coaching quality before adding model-call avoidance.
 - "previous mistakes" could imply a growing mistake log; resolved: **Review memory** tracks the current **Learning edge** only.
 - **Review memory** should not be inferred from feedback prose by app logic; resolved: the model returns structured memory metadata and the app stores it.
+- "import" could mean replacing the deck or adding to it; resolved: **Append import** adds new cards without changing existing review progress.
+- "same card" is identified by normalized question and answer in the MVP; resolved: **Duplicate cards** are skipped during **Append import**. Normalization trims, collapses whitespace, and ignores case.
+- "duplicate" could imply updating changed context or explanation; resolved: **Duplicate cards** are skipped entirely during **Append import** in the MVP.

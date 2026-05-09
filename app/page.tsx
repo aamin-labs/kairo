@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sanitizeCardHtml } from "@/lib/card-html";
-import { importReviewDeck } from "@/lib/card-import";
+import { appendReviewDeck, importReviewDeck } from "@/lib/card-import";
 import { getReviewSnapshot, recordReviewAttempt } from "@/lib/review-session";
 import { clearDeck, loadDeck, saveDeck } from "@/lib/storage";
 import type {
@@ -26,6 +26,7 @@ export default function Home() {
   const [cards, setCards] = useState<ReviewCard[]>([]);
   const [csvText, setCsvText] = useState("");
   const [importError, setImportError] = useState("");
+  const [importResult, setImportResult] = useState("");
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [proposedReviewMemory, setProposedReviewMemory] = useState<ReviewMemoryProposal | null | undefined>();
@@ -99,8 +100,24 @@ export default function Home() {
     try {
       setCards(importReviewDeck(csvText));
       setImportError("");
+      setImportResult("");
+      setCsvText("");
       resetReviewState();
     } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Import failed.");
+    }
+  }
+
+  function appendCards() {
+    try {
+      const result = appendReviewDeck(cards, csvText);
+      setCards(result.cards);
+      setImportError("");
+      setImportResult(`Added ${result.addedCount} cards. Skipped ${result.skippedDuplicateCount} duplicates.`);
+      setCsvText("");
+      resetReviewState();
+    } catch (error) {
+      setImportResult("");
       setImportError(error instanceof Error ? error.message : "Import failed.");
     }
   }
@@ -186,6 +203,7 @@ export default function Home() {
     setCards([]);
     setCsvText("");
     setImportError("");
+    setImportResult("");
     resetReviewState();
   }
 
@@ -227,6 +245,7 @@ export default function Home() {
           />
 
           {importError ? <p className="error">{importError}</p> : null}
+          {importResult ? <p className="success">{importResult}</p> : null}
 
           <div className="actions">
             <button className="primary" onClick={importCards} disabled={!csvText.trim()}>
@@ -255,6 +274,32 @@ export default function Home() {
           <span>{snapshot.totalCount} total</span>
         </div>
       </header>
+
+      <section className="append-import" aria-label="Add cards">
+        <div>
+          <h2>Add cards</h2>
+          <p className="subtle">
+            Paste more CSV. Existing review progress stays. Duplicate question-answer pairs are skipped.
+          </p>
+        </div>
+        <textarea
+          className="csv-input compact"
+          value={csvText}
+          onChange={(event) => setCsvText(event.target.value)}
+          placeholder={SAMPLE_CSV}
+          spellCheck={false}
+        />
+        {importError ? <p className="error">{importError}</p> : null}
+        {importResult ? <p className="success">{importResult}</p> : null}
+        <div className="actions">
+          <button className="primary" onClick={appendCards} disabled={!csvText.trim()}>
+            Add cards
+          </button>
+          <button className="secondary" onClick={() => setCsvText(SAMPLE_CSV)}>
+            Use sample
+          </button>
+        </div>
+      </section>
 
       {!current ? (
         <section className="empty-state">
