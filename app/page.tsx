@@ -37,12 +37,12 @@ export default function Home() {
   const [isCoaching, setIsCoaching] = useState(false);
   const [isHinting, setIsHinting] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
     setCards(loadDeck());
     const savedTheme = window.localStorage.getItem(THEME_KEY);
-    if (savedTheme === "dark") setTheme("dark");
+    if (savedTheme === "light") setTheme("light");
   }, []);
 
   useEffect(() => {
