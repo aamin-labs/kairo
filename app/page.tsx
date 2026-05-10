@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { sanitizeCardHtml } from "@/lib/card-html";
 import { appendReviewDeck, importReviewDeck } from "@/lib/card-import";
 import { getReviewSnapshot, recordReviewAttempt } from "@/lib/review-session";
+import { nextIntervalDays } from "@/lib/scheduler";
 import { clearDeck, loadDeck, saveDeck } from "@/lib/storage";
 import type {
   CoachingMessage,
@@ -21,6 +22,7 @@ const SAMPLE_CSV = `Question,Answer,Context,Explanation
 const THEME_KEY = "kairo.theme";
 const MAX_FOLLOW_UP_REPLIES = 4;
 type Theme = "light" | "dark";
+type ActiveTab = "review" | "add";
 
 export default function Home() {
   const [cards, setCards] = useState<ReviewCard[]>([]);
@@ -39,6 +41,8 @@ export default function Home() {
   const [isHinting, setIsHinting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [theme, setTheme] = useState<Theme>("dark");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("review");
+  const [sessionReviewedCount, setSessionReviewedCount] = useState(0);
 
   useEffect(() => {
     setCards(loadDeck());
@@ -57,6 +61,9 @@ export default function Home() {
 
   const snapshot = useMemo(() => getReviewSnapshot(cards), [cards]);
   const current = snapshot.current;
+  const readyCount = snapshot.queue.length;
+  const sessionTotal = current ? readyCount + sessionReviewedCount : readyCount;
+  const ratingIntervals = current ? ratingIntervalLabels(current) : undefined;
   const followUpReplyCount = coachingThread.filter((message) => message.role === "learner").length - 1;
   const canReplyToFollowUp = hasOpenFollowUpPrompt && followUpReplyCount < MAX_FOLLOW_UP_REPLIES;
 
@@ -74,6 +81,7 @@ export default function Home() {
           reviewMemory: proposedReviewMemory
         })
       );
+      setSessionReviewedCount((count) => count + 1);
       resetReviewState();
     },
     [answer, coachingThread, current, feedback, proposedReviewMemory]
@@ -102,6 +110,7 @@ export default function Home() {
       setImportError("");
       setImportResult("");
       setCsvText("");
+      setSessionReviewedCount(0);
       resetReviewState();
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Import failed.");
@@ -115,6 +124,7 @@ export default function Home() {
       setImportError("");
       setImportResult(`Added ${result.addedCount} cards. Skipped ${result.skippedDuplicateCount} duplicates.`);
       setCsvText("");
+      setSessionReviewedCount(0);
       resetReviewState();
     } catch (error) {
       setImportResult("");
@@ -204,6 +214,7 @@ export default function Home() {
     setCsvText("");
     setImportError("");
     setImportResult("");
+    setSessionReviewedCount(0);
     resetReviewState();
   }
 
@@ -266,7 +277,7 @@ export default function Home() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Kairo Review</p>
-          <h1>Review queue</h1>
+          <h1>Review</h1>
         </div>
         <div className="stats" aria-label="Deck stats">
           <span>{snapshot.dueCount} due</span>
@@ -275,46 +286,101 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="append-import" aria-label="Add cards">
-        <div>
-          <h2>Add cards</h2>
-          <p className="subtle">
-            Paste more CSV. Existing review progress stays. Duplicate question-answer pairs are skipped.
-          </p>
-        </div>
-        <textarea
-          className="csv-input compact"
-          value={csvText}
-          onChange={(event) => setCsvText(event.target.value)}
-          placeholder={SAMPLE_CSV}
-          spellCheck={false}
-        />
-        {importError ? <p className="error">{importError}</p> : null}
-        {importResult ? <p className="success">{importResult}</p> : null}
-        <div className="actions">
-          <button className="primary" onClick={appendCards} disabled={!csvText.trim()}>
-            Add cards
-          </button>
-          <button className="secondary" onClick={() => setCsvText(SAMPLE_CSV)}>
-            Use sample
-          </button>
-        </div>
-      </section>
+      <nav className="tabs" aria-label="Deck views">
+        <button
+          type="button"
+          className={activeTab === "review" ? "active" : ""}
+          onClick={() => setActiveTab("review")}
+          aria-current={activeTab === "review" ? "page" : undefined}
+        >
+          Review
+        </button>
+        <button
+          type="button"
+          className={activeTab === "add" ? "active" : ""}
+          onClick={() => setActiveTab("add")}
+          aria-current={activeTab === "add" ? "page" : undefined}
+        >
+          Add cards
+        </button>
+      </nav>
 
-      {!current ? (
-        <section className="empty-state">
-          <h2>Nothing due.</h2>
-          <p className="subtle">New cards are capped at 20 per day. Come back when reviews mature.</p>
+      {activeTab === "add" ? (
+        <section className="add-cards-layout" aria-label="Add cards">
+          <article className="add-cards-card">
+            <div className="card-meta">
+              <span>Append import</span>
+              <span>{snapshot.totalCount} cards</span>
+            </div>
+            <h2>Add cards</h2>
+            <p className="subtle">
+              Paste CSV with <code>Question</code>, <code>Answer</code>, <code>Context</code>,{" "}
+              <code>Explanation</code>.
+            </p>
+
+            <label className="answer-label" htmlFor="append-csv">
+              CSV
+            </label>
+            <textarea
+              id="append-csv"
+              className="csv-input append-csv-input"
+              value={csvText}
+              onChange={(event) => setCsvText(event.target.value)}
+              placeholder={SAMPLE_CSV}
+              spellCheck={false}
+            />
+
+            {importError ? <p className="error">{importError}</p> : null}
+            {importResult ? <p className="success">{importResult}</p> : null}
+
+            <div className="actions">
+              <button className="primary" onClick={appendCards} disabled={!csvText.trim()}>
+                Add cards
+              </button>
+              <button className="secondary" onClick={() => setCsvText(SAMPLE_CSV)}>
+                Use sample
+              </button>
+            </div>
+          </article>
+
+          <aside className="add-cards-panel">
+            <h2>Import rules</h2>
+            <div className="truth">
+              <p>Existing review progress stays untouched.</p>
+              <p>Duplicate question-answer pairs are skipped.</p>
+              <p>New cards enter the queue immediately.</p>
+            </div>
+          </aside>
+        </section>
+      ) : !current ? (
+        <section className={`empty-state ${sessionReviewedCount > 0 ? "session-complete" : ""}`}>
+          {sessionReviewedCount > 0 ? (
+            <>
+              <p className="eyebrow">Session complete</p>
+              <h2>{sessionReviewedCount} cards reviewed.</h2>
+              <p className="subtle">Queue cleared for now. Come back when reviews mature.</p>
+            </>
+          ) : (
+            <>
+              <h2>Nothing due.</h2>
+              <p className="subtle">New cards are capped at 20 per day. Come back when reviews mature.</p>
+            </>
+          )}
           <button className="secondary" onClick={resetAll}>
             Reset deck
           </button>
         </section>
       ) : (
-        <section className="review-layout">
+        <section className={`review-layout ${feedback ? "with-feedback" : "solo-review"}`}>
           <article className="review-card">
+            <div className="session-strip" aria-label="Review progress">
+              <span>
+                Card {sessionReviewedCount + 1} of {sessionTotal}
+              </span>
+            </div>
+
             <div className="card-meta">
               <span>{current.context || "Card"}</span>
-              <span>{current.seen ? `Interval ${current.intervalDays}d` : "New"}</span>
             </div>
             <SafeHtml className="question" html={current.question} />
 
@@ -396,44 +462,50 @@ export default function Home() {
                 )}
               </section>
             )}
+
           </article>
 
-          <aside className="feedback-panel">
-            {!feedback ? (
-              <div className="quiet">
-                <h2>Feedback appears here.</h2>
-                <p>Answer first. Hint only when stuck.</p>
+          {feedback ? (
+            <aside className="feedback-panel">
+              <div className="truth">
+                <h2>Expected answer</h2>
+                <SafeHtml html={current.answer} />
+                {current.explanation ? <SafeHtml className="explanation" html={current.explanation} /> : null}
               </div>
-            ) : (
-              <>
-                <div className="truth">
-                  <h2>Expected answer</h2>
-                  <SafeHtml html={current.answer} />
-                  {current.explanation ? <SafeHtml className="explanation" html={current.explanation} /> : null}
-                </div>
 
-                <section className="feedback-prose">
-                  <h2>Feedback</h2>
-                  <p>{feedback.text}</p>
-                </section>
+              <section className="feedback-prose">
+                <h2>Feedback</h2>
+                <p>{feedback.text}</p>
+              </section>
 
-                <div className="rating-grid">
-                  <button onClick={() => rateCard("again")}>
-                    Again <kbd>1</kbd>
-                  </button>
-                  <button onClick={() => rateCard("hard")}>
-                    Hard <kbd>2</kbd>
-                  </button>
-                  <button onClick={() => rateCard("good")}>
-                    Good <kbd>3</kbd>
-                  </button>
-                  <button onClick={() => rateCard("easy")}>
-                    Easy <kbd>4</kbd>
-                  </button>
-                </div>
-              </>
-            )}
-          </aside>
+              <div className="rating-heading">
+              <h2>Rate recall</h2>
+              <span>1-4</span>
+            </div>
+            <div className="rating-grid">
+                <button onClick={() => rateCard("again")}>
+                  <span>Again</span>
+                  <small>{ratingIntervals?.again}</small>
+                  <kbd>1</kbd>
+                </button>
+                <button onClick={() => rateCard("hard")}>
+                  <span>Hard</span>
+                  <small>{ratingIntervals?.hard}</small>
+                  <kbd>2</kbd>
+                </button>
+                <button onClick={() => rateCard("good")}>
+                  <span>Good</span>
+                  <small>{ratingIntervals?.good}</small>
+                  <kbd>3</kbd>
+                </button>
+                <button onClick={() => rateCard("easy")}>
+                  <span>Easy</span>
+                  <small>{ratingIntervals?.easy}</small>
+                  <kbd>4</kbd>
+                </button>
+              </div>
+            </aside>
+          ) : null}
         </section>
       )}
 
@@ -447,9 +519,18 @@ export default function Home() {
 }
 
 function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+  const nextTheme = theme === "dark" ? "light" : "dark";
+
   return (
-    <button className="theme-toggle" type="button" onClick={onToggle} aria-pressed={theme === "dark"}>
-      {theme === "dark" ? "Light" : "Dark"}
+    <button
+      className="theme-toggle"
+      type="button"
+      onClick={onToggle}
+      aria-label={`Switch to ${nextTheme} theme`}
+      aria-pressed={theme === "dark"}
+      title={`Switch to ${nextTheme} theme`}
+    >
+      <span className={`theme-icon ${theme}`} aria-hidden="true" />
     </button>
   );
 }
@@ -472,6 +553,19 @@ function ratingForShortcut(key: string): Rating | undefined {
   if (key === "2") return "hard";
   if (key === "3") return "good";
   if (key === "4") return "easy";
+}
+
+function ratingIntervalLabels(card: ReviewCard): Record<Rating, string> {
+  return {
+    again: "10m",
+    hard: formatInterval(nextIntervalDays(card, "hard")),
+    good: formatInterval(nextIntervalDays(card, "good")),
+    easy: formatInterval(nextIntervalDays(card, "easy"))
+  };
+}
+
+function formatInterval(days: number): string {
+  return days === 1 ? "1d" : `${days}d`;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
