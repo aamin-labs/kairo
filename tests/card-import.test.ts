@@ -67,7 +67,7 @@ test("appends new cards without changing existing review progress", () => {
     result.cards.map((card) => ({ id: card.id, question: card.question, seen: card.seen, dueAt: card.dueAt })),
     [
       { id: "existing", question: "Q1", seen: true, dueAt: "2026-05-13T08:00:00.000Z" },
-      { id: "card_20260508080000000_0", question: "Q2", seen: false, dueAt: "2026-05-08T08:00:00.000Z" }
+      { id: "card_20260508080000000_0_0", question: "Q2", seen: false, dueAt: "2026-05-08T08:00:00.000Z" }
     ]
   );
 });
@@ -88,6 +88,33 @@ test("append skips normalized duplicates from existing deck and same CSV", () =>
   assert.equal(result.skippedDuplicateCount, 2);
   assert.equal(result.cards.length, 2);
   assert.equal(result.cards[1].question, "Q2");
+});
+
+test("append generates unique ids when timestamp prefix already exists", () => {
+  const existing = [
+    reviewCard({ id: "card_20260508080000000_0", question: "Q1", answer: "A1" }),
+    reviewCard({ id: "card_20260508080000000_0_0", question: "Q2", answer: "A2" }),
+    reviewCard({ id: "card_20260508080000000_1_1", question: "Q3", answer: "A3" })
+  ];
+
+  const result = appendReviewDeck(
+    existing,
+    `Question,Answer,Context,Explanation
+"Q4","A4","SRS","E4"
+"Q5","A5","SRS","E5"`,
+    new Date("2026-05-08T08:00:00.000Z")
+  );
+
+  assert.deepEqual(
+    result.cards.map((card) => card.id),
+    [
+      "card_20260508080000000_0",
+      "card_20260508080000000_0_0",
+      "card_20260508080000000_1_1",
+      "card_20260508080000000_2_0",
+      "card_20260508080000000_2_1"
+    ]
+  );
 });
 
 function reviewCard(overrides: Partial<ReviewCard> = {}): ReviewCard {
