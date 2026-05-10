@@ -1,20 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sanitizeCardHtml } from "@/lib/card-html";
-import { appendReviewDeck, importReviewDeck } from "@/lib/card-import";
-import { getReviewSnapshot, recordReviewAttempt } from "@/lib/review-session";
+import { httpCoachClient } from "@/lib/coach-client";
+import { ReviewSession, type ReviewSessionState } from "@/lib/review-session";
 import { nextIntervalDays } from "@/lib/scheduler";
-import { clearDeck, loadDeck, saveDeck } from "@/lib/storage";
-import type {
-  CoachingMessage,
-  CoachingResponse,
-  Feedback,
-  Hint,
-  Rating,
-  ReviewCard,
-  ReviewMemoryProposal
-} from "@/lib/types";
+import { browserDeckStore } from "@/lib/storage";
+import type { Rating, ReviewCard } from "@/lib/types";
 
 const SAMPLE_CSV = `Question,Answer,Context,Explanation
 "When should you use **Good** instead of **Easy**?","Use **Good** when recall was solid but not automatic.","SRS","Easy should be reserved for cold, fluent retrieval."
@@ -25,43 +17,53 @@ type Theme = "light" | "dark";
 type ActiveTab = "review" | "add";
 
 export default function Home() {
-  const [cards, setCards] = useState<ReviewCard[]>([]);
+  const sessionRef = useRef<ReviewSession | null>(null);
+  const [sessionState, setSessionState] = useState<ReviewSessionState>({
+    cards: [],
+    active: {
+      answer: "",
+      feedback: null,
+      proposedReviewMemory: undefined,
+      coachingThread: [],
+      hasOpenFollowUpPrompt: false,
+      hint: ""
+    },
+    sessionReviewedCount: 0
+  });
   const [csvText, setCsvText] = useState("");
   const [importError, setImportError] = useState("");
   const [importResult, setImportResult] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [proposedReviewMemory, setProposedReviewMemory] = useState<ReviewMemoryProposal | null | undefined>();
-  const [coachingThread, setCoachingThread] = useState<CoachingMessage[]>([]);
   const [followUpReply, setFollowUpReply] = useState("");
-  const [hasOpenFollowUpPrompt, setHasOpenFollowUpPrompt] = useState(false);
-  const [hint, setHint] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCoaching, setIsCoaching] = useState(false);
   const [isHinting, setIsHinting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [theme, setTheme] = useState<Theme>("dark");
   const [activeTab, setActiveTab] = useState<ActiveTab>("review");
-  const [sessionReviewedCount, setSessionReviewedCount] = useState(0);
   const [isDeckLoaded, setIsDeckLoaded] = useState(false);
 
   useEffect(() => {
-    setCards(loadDeck());
+    const session = new ReviewSession(browserDeckStore(), httpCoachClient());
+    sessionRef.current = session;
+    setSessionState(session.load());
     setIsDeckLoaded(true);
     const savedTheme = window.localStorage.getItem(THEME_KEY);
     if (savedTheme === "light") setTheme("light");
   }, []);
 
   useEffect(() => {
-    if (isDeckLoaded && cards.length > 0) saveDeck(cards);
-  }, [cards, isDeckLoaded]);
-
-  useEffect(() => {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  const snapshot = useMemo(() => getReviewSnapshot(cards), [cards]);
+  function session(): ReviewSession {
+    if (!sessionRef.current) throw new Error("Review session is not ready.");
+    return sessionRef.current;
+  }
+
+  const snapshot = useMemo(() => sessionRef.current?.getSnapshot() ?? { queue: [], dueCount: 0, newCount: 0, totalCount: 0 }, [sessionState]);
+  const { answer, feedback, coachingThread, hasOpenFollowUpPrompt, hint } = sessionState.active;
+  const { cards, sessionReviewedCount } = sessionState;
   const current = snapshot.current;
   const readyCount = snapshot.queue.length;
   const sessionTotal = current ? readyCount + sessionReviewedCount : readyCount;
@@ -73,20 +75,11 @@ export default function Home() {
     (rating: Rating) => {
       if (!current || !feedback) return;
 
-      setCards((existing) =>
-        recordReviewAttempt(existing, {
-          cardId: current.id,
-          answer,
-          feedback,
-          coachingThread,
-          rating,
-          reviewMemory: proposedReviewMemory
-        })
-      );
-      setSessionReviewedCount((count) => count + 1);
-      resetReviewState();
+      setSessionState(session().rateCurrentCard(rating));
+      setFollowUpReply("");
+      setApiError("");
     },
-    [answer, coachingThread, current, feedback, proposedReviewMemory]
+    [current, feedback]
   );
 
   useEffect(() => {
@@ -108,11 +101,10 @@ export default function Home() {
 
   function importCards() {
     try {
-      setCards(importReviewDeck(csvText));
+      setSessionState(session().importDeck(csvText));
       setImportError("");
       setImportResult("");
       setCsvText("");
-      setSessionReviewedCount(0);
       setActiveTab("review");
       resetReviewState();
     } catch (error) {
@@ -122,12 +114,11 @@ export default function Home() {
 
   function appendCards() {
     try {
-      const result = appendReviewDeck(cards, csvText);
-      setCards(result.cards);
+      const result = session().appendDeck(csvText);
+      setSessionState(result.state);
       setImportError("");
       setImportResult(`Added ${result.addedCount} cards. Skipped ${result.skippedDuplicateCount} duplicates.`);
       setCsvText("");
-      setSessionReviewedCount(0);
       setActiveTab("review");
       resetReviewState();
     } catch (error) {
@@ -142,8 +133,8 @@ export default function Home() {
     setApiError("");
 
     try {
-      const body = await postJson<Hint>("/api/hint", { card: cardPayload(current) });
-      setHint(body.hint);
+      await session().requestHint();
+      setSessionState(session().getState());
     } catch (error) {
       setApiError(error instanceof Error ? error.message : "Hint failed.");
     } finally {
@@ -157,18 +148,8 @@ export default function Home() {
     setApiError("");
 
     try {
-      const body = await postJson<Feedback>("/api/feedback", {
-        card: cardPayload(current),
-        learnerAnswer: answer,
-        reviewMemory: current.reviewMemory
-      });
-      setFeedback(body);
-      setProposedReviewMemory(body.reviewMemory);
-      setCoachingThread([
-        { role: "learner", text: answer },
-        ...(body.followUpPrompt ? [{ role: "coach" as const, text: body.followUpPrompt }] : [])
-      ]);
-      setHasOpenFollowUpPrompt(Boolean(body.followUpPrompt));
+      await session().submitAnswer(answer);
+      setSessionState(session().getState());
     } catch (error) {
       setApiError(error instanceof Error ? error.message : "Feedback failed.");
     } finally {
@@ -179,33 +160,17 @@ export default function Home() {
   async function submitFollowUpReply() {
     if (!current || !feedback || !followUpReply.trim() || followUpReplyCount >= MAX_FOLLOW_UP_REPLIES) return;
 
-    const learnerMessage: CoachingMessage = { role: "learner", text: followUpReply };
-    const nextThread = [...coachingThread, learnerMessage];
-    setCoachingThread(nextThread);
+    const reply = followUpReply;
     setFollowUpReply("");
-    setHasOpenFollowUpPrompt(false);
     setIsCoaching(true);
     setApiError("");
 
     try {
-      const body = await postJson<CoachingResponse>("/api/coaching", {
-        card: cardPayload(current),
-        learnerAnswer: answer,
-        feedback,
-        thread: nextThread,
-        reviewMemory: current.reviewMemory,
-        proposedReviewMemory
-      });
-      if ("reviewMemory" in body) setProposedReviewMemory(body.reviewMemory);
-      setCoachingThread((existing) => [
-        ...existing,
-        { role: "coach", text: body.followUpPrompt ? `${body.text}\n\n${body.followUpPrompt}` : body.text }
-      ]);
-      setHasOpenFollowUpPrompt(Boolean(body.followUpPrompt));
+      await session().submitFollowUpReply(reply);
+      setSessionState(session().getState());
     } catch (error) {
-      setCoachingThread(coachingThread);
-      setFollowUpReply(learnerMessage.text);
-      setHasOpenFollowUpPrompt(true);
+      setSessionState(session().getState());
+      setFollowUpReply(reply);
       setApiError(error instanceof Error ? error.message : "Coaching failed.");
     } finally {
       setIsCoaching(false);
@@ -213,23 +178,16 @@ export default function Home() {
   }
 
   function resetAll() {
-    clearDeck();
-    setCards([]);
+    setSessionState(session().clear());
     setCsvText("");
     setImportError("");
     setImportResult("");
-    setSessionReviewedCount(0);
     resetReviewState();
   }
 
   function resetReviewState() {
-    setAnswer("");
-    setFeedback(null);
-    setProposedReviewMemory(undefined);
-    setCoachingThread([]);
+    setSessionState(session().resetActiveReview());
     setFollowUpReply("");
-    setHasOpenFollowUpPrompt(false);
-    setHint("");
     setApiError("");
   }
 
@@ -401,7 +359,7 @@ export default function Home() {
                   id="answer"
                   className="answer-input"
                   value={answer}
-                  onChange={(event) => setAnswer(event.target.value)}
+                  onChange={(event) => setSessionState(session().setAnswer(event.target.value))}
                   onKeyDown={(event) => {
                     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                       event.preventDefault();
@@ -547,15 +505,6 @@ function SafeHtml({ html, className }: { html: string; className?: string }) {
   return <div className={className} dangerouslySetInnerHTML={{ __html: sanitizeCardHtml(html) }} />;
 }
 
-function cardPayload(card: ReviewCard) {
-  return {
-    question: card.question,
-    answer: card.answer,
-    context: card.context,
-    explanation: card.explanation
-  };
-}
-
 function ratingForShortcut(key: string): Rating | undefined {
   if (key === "1") return "again";
   if (key === "2") return "hard";
@@ -583,18 +532,3 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return tagName === "input" || tagName === "textarea" || target.isContentEditable;
 }
 
-async function postJson<T>(url: string, payload: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  const body = (await response.json()) as T | { error?: string };
-
-  if (!response.ok) {
-    const error = typeof body === "object" && body && "error" in body ? body.error : undefined;
-    throw new Error(error || "Request failed.");
-  }
-
-  return body as T;
-}
