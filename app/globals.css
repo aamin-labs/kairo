@@ -28,6 +28,14 @@
   --shadow: oklch(8% 0.004 130 / 0.24) 0 1px 2px 0;
   --shadow-tight: oklch(96% 0.006 110 / 0.04) 0 0 0 1px;
   --shadow-xl: oklch(8% 0.004 130 / 0.24) 0 12px 32px 0;
+  --font-ui: Inter, "Inter Variable", "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Berkeley Mono", "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  --text-caption: 0.75rem;
+  --text-small: 0.8125rem;
+  --text-body: 1rem;
+  --text-lead: 1.1875rem;
+  --text-title: 1.625rem;
+  --text-display: 2rem;
 }
 
 [data-theme="light"] {
@@ -76,9 +84,11 @@ body {
   margin: 0;
   background: linear-gradient(180deg, color-mix(in oklch, var(--panel) 44%, transparent), transparent 280px), var(--bg);
   color: var(--ink);
-  font-family: Inter, "Inter Variable", "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  font-size: 14px;
-  letter-spacing: -0.08px;
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-kerning: normal;
+  font-feature-settings: "kern" 1, "ss01" 1;
+  letter-spacing: -0.01em;
 }
 
 button,
