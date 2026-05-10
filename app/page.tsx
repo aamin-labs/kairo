@@ -43,16 +43,18 @@ export default function Home() {
   const [theme, setTheme] = useState<Theme>("dark");
   const [activeTab, setActiveTab] = useState<ActiveTab>("review");
   const [sessionReviewedCount, setSessionReviewedCount] = useState(0);
+  const [isDeckLoaded, setIsDeckLoaded] = useState(false);
 
   useEffect(() => {
     setCards(loadDeck());
+    setIsDeckLoaded(true);
     const savedTheme = window.localStorage.getItem(THEME_KEY);
     if (savedTheme === "light") setTheme("light");
   }, []);
 
   useEffect(() => {
-    if (cards.length > 0) saveDeck(cards);
-  }, [cards]);
+    if (isDeckLoaded && cards.length > 0) saveDeck(cards);
+  }, [cards, isDeckLoaded]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -111,6 +113,7 @@ export default function Home() {
       setImportResult("");
       setCsvText("");
       setSessionReviewedCount(0);
+      setActiveTab("review");
       resetReviewState();
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Import failed.");
@@ -125,6 +128,7 @@ export default function Home() {
       setImportResult(`Added ${result.addedCount} cards. Skipped ${result.skippedDuplicateCount} duplicates.`);
       setCsvText("");
       setSessionReviewedCount(0);
+      setActiveTab("review");
       resetReviewState();
     } catch (error) {
       setImportResult("");
@@ -231,6 +235,10 @@ export default function Home() {
 
   function toggleTheme() {
     setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
+  }
+
+  if (!isDeckLoaded) {
+    return null;
   }
 
   if (cards.length === 0) {
