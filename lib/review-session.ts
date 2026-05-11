@@ -161,7 +161,7 @@ export class ReviewSession {
     const feedback = await this.coachClient.requestFeedback(cardPayload(current), answer, current.reviewMemory);
     const coachingThread: CoachingMessage[] = [
       { role: "learner", text: answer },
-      ...(feedback.followUpPrompt ? [{ role: "coach" as const, text: feedback.followUpPrompt }] : [])
+      { role: "coach", text: coachMessage(feedback.text, feedback.followUpPrompt) }
     ];
 
     this.state = {
@@ -199,7 +199,7 @@ export class ReviewSession {
       );
       const finalThread = [
         ...nextThread,
-        { role: "coach" as const, text: response.followUpPrompt ? `${response.text}\n\n${response.followUpPrompt}` : response.text }
+        { role: "coach" as const, text: coachMessage(response.text, response.followUpPrompt) }
       ];
 
       this.state = {
@@ -270,6 +270,10 @@ export function getReviewSnapshot(cards: ReviewCard[], now = new Date()): Review
     newCount: cards.filter((card) => !card.seen).length,
     totalCount: cards.length
   };
+}
+
+function coachMessage(text: string, followUpPrompt?: string): string {
+  return followUpPrompt ? `${text}\n\n${followUpPrompt}` : text;
 }
 
 function cloneSessionState(state: ReviewSessionState): ReviewSessionState {
