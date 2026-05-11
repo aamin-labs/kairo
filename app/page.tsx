@@ -383,7 +383,7 @@ export default function Home() {
               </>
             ) : (
               <>
-                <section className="coaching-thread" aria-label="Coaching thread">
+                <section className="coaching-card" aria-label="Coaching thread">
                   <div className="messages">
                     {coachingThread.map((message, index) => (
                       <p className={`message ${message.role}`} key={`${message.role}-${index}`}>
@@ -392,6 +392,39 @@ export default function Home() {
                     ))}
                     {isCoaching ? <p className="message coach pending">Thinking...</p> : null}
                   </div>
+
+                  {apiError ? <p className="error">{apiError}</p> : null}
+
+                  {canReplyToFollowUp ? (
+                    <section className="coaching-reply" aria-label="Reply to coach">
+                      <label className="answer-label" htmlFor="follow-up-reply">
+                        Reply
+                      </label>
+                      <textarea
+                        id="follow-up-reply"
+                        className="answer-input follow-up-input"
+                        value={followUpReply}
+                        onChange={(event) => setFollowUpReply(event.target.value)}
+                        onKeyDown={(event) => {
+                          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                            event.preventDefault();
+                            void submitFollowUpReply();
+                          }
+                        }}
+                        placeholder="Reply to the coach, or rate when ready."
+                        disabled={isCoaching}
+                      />
+                      <div className="actions">
+                        <button
+                          className="primary"
+                          onClick={submitFollowUpReply}
+                          disabled={isCoaching || !followUpReply.trim()}
+                        >
+                          {isCoaching ? "Sending..." : "Send reply"}
+                        </button>
+                      </div>
+                    </section>
+                  ) : null}
                 </section>
 
                 <section className="truth expected-answer-card" aria-label="Expected answer">
@@ -399,39 +432,6 @@ export default function Home() {
                   <SafeHtml html={current.answer} />
                   {current.explanation ? <SafeHtml className="explanation" html={current.explanation} /> : null}
                 </section>
-
-                {apiError ? <p className="error">{apiError}</p> : null}
-
-                {canReplyToFollowUp ? (
-                  <section className="coaching-thread coaching-reply" aria-label="Reply to coach">
-                    <label className="answer-label" htmlFor="follow-up-reply">
-                      Reply
-                    </label>
-                    <textarea
-                      id="follow-up-reply"
-                      className="answer-input follow-up-input"
-                      value={followUpReply}
-                      onChange={(event) => setFollowUpReply(event.target.value)}
-                      onKeyDown={(event) => {
-                        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                          event.preventDefault();
-                          void submitFollowUpReply();
-                        }
-                      }}
-                      placeholder="Reply to the coach, or rate when ready."
-                      disabled={isCoaching}
-                    />
-                    <div className="actions">
-                      <button
-                        className="primary"
-                        onClick={submitFollowUpReply}
-                        disabled={isCoaching || !followUpReply.trim()}
-                      >
-                        {isCoaching ? "Sending..." : "Send reply"}
-                      </button>
-                    </div>
-                  </section>
-                ) : null}
 
                 <section className="rating-section" aria-label="Rate recall">
                   <div className="rating-heading">

@@ -72,8 +72,9 @@ _Avoid_: Repeat, copy
 - A **Coaching thread** belongs to one review attempt
 - A **Coaching thread** is capped at four learner replies in the MVP
 - A full **Coaching thread** is saved with the review attempt but does not affect scheduling
-- After **Feedback** appears, the review flow remains single-column: question, learner answer, tutor feedback, expected-answer card, optional reply, then rating
-- **Rating** appears after the optional reply box while remaining available once **Feedback** exists
+- After **Feedback** appears, the review flow remains single-column: question, coaching card, expected-answer card, then rating
+- The coaching card contains the learner answer, tutor feedback, and optional reply box
+- **Rating** appears after the expected-answer card while remaining available once **Feedback** exists
 - The review flow avoids generic rating prompts when rating buttons are already visible
 - A **Rating** remains outside the **Coaching thread** because it is the learner's judgment, not conversation
 - A **Rating** remains available even when a **Coaching thread** is active
