@@ -17,7 +17,7 @@ export async function requestFeedback(
   reviewMemory?: ReviewMemory
 ): Promise<Feedback> {
   return requestJson<Feedback>(
-    "You are a terse Socratic Anki review coach. Stay grounded in the card fields. Return only JSON. Separate critique from follow-up. If prior reviewMemory exists, compare the learner's current answer against that learning edge. In text, use 2-4 compact sentences to judge the learner's answer, name what worked, correct what is fuzzy, and improve precision. Put one optional Socratic follow-up question in followUpPrompt only when useful. Do not include the follow-up question inside text. Return reviewMemory as the current learning edge plus evidence, or null when no useful learning edge remains.",
+    "You are a terse Socratic Anki review coach. Stay grounded in the card fields. Separate critique from follow-up. If prior reviewMemory exists, compare the learner's current answer against that learning edge. In text, use 2-4 compact sentences to judge the learner's answer, name what worked, correct what is fuzzy, and improve precision. Put one optional Socratic follow-up question in followUpPrompt only when useful. Do not include the follow-up question inside text. Return reviewMemory as the current learning edge plus evidence, or null when no useful learning edge remains.",
     {
       task: "review_answer",
       expectedShape: {
@@ -31,7 +31,8 @@ export async function requestFeedback(
       card,
       learnerAnswer,
       reviewMemory: reviewMemory ?? null
-    }
+    },
+    responseSchema(["text"])
   );
 }
 
@@ -44,7 +45,7 @@ export async function requestCoaching(
   proposedReviewMemory?: ReviewMemoryProposal | null
 ): Promise<CoachingResponse> {
   return requestJson<CoachingResponse>(
-    "You are continuing a short Socratic coaching thread for an Anki review. Stay grounded in the card fields and prior thread. Use proposedReviewMemory as the current memory proposal for this attempt. Use prior reviewMemory after the current thread, not before it. Return only JSON. In text, briefly respond to the learner's latest reply: correct misconceptions, confirm useful precision, or clarify the missing idea. Put one optional next question in followUpPrompt only when it would deepen recall. Do not grade or rate the answer. Do not include the follow-up question inside text. Return reviewMemory as the updated current learning edge plus evidence, or null when no useful learning edge remains.",
+    "You are continuing a short Socratic coaching thread for an Anki review. Stay grounded in the card fields and prior thread. Use proposedReviewMemory as the current memory proposal for this attempt. Use prior reviewMemory after the current thread, not before it. In text, briefly respond to the learner's latest reply: correct misconceptions, confirm useful precision, or clarify the missing idea. Put one optional next question in followUpPrompt only when it would deepen recall. Do not grade or rate the answer. Do not include the follow-up question inside text. Return reviewMemory as the updated current learning edge plus evidence, or null when no useful learning edge remains.",
     {
       task: "continue_coaching",
       expectedShape: {
@@ -61,27 +62,43 @@ export async function requestCoaching(
       thread,
       reviewMemory: reviewMemory ?? null,
       proposedReviewMemory: proposedReviewMemory ?? null
-    }
+    },
+    responseSchema(["text"])
   );
 }
 
 export async function requestHint(card: ImportedCard): Promise<Hint> {
   return requestJson<Hint>(
-    "You are a terse Socratic Anki hint generator. Give one scaffolded hint. Do not reveal the answer. Return only JSON.",
+    "You are a terse Socratic Anki hint generator. Give one scaffolded hint. Do not reveal the answer.",
     {
       task: "give_hint",
       expectedShape: { hint: "one short hint that helps retrieval without giving away the answer" },
       card
+    },
+    {
+      type: "object",
+      additionalProperties: false,
+      properties: { hint: { type: "string" } },
+      required: ["hint"]
     }
   );
 }
 
-async function requestJson<T>(instructions: string, input: unknown): Promise<T> {
-  const text = await requestAnthropic(instructions, input);
+type JsonSchema = Record<string, unknown>;
+
+type AnthropicContentPart = {
+  type?: string;
+  text?: string;
+  name?: string;
+  input?: unknown;
+};
+
+async function requestJson<T>(instructions: string, input: unknown, schema: JsonSchema): Promise<T> {
+  const text = await requestAnthropic(instructions, input, schema);
   return parseJsonResponse<T>(text);
 }
 
-async function requestAnthropic(instructions: string, input: unknown): Promise<string> {
+async function requestAnthropic(instructions: string, input: unknown, schema: JsonSchema): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -100,7 +117,15 @@ async function requestAnthropic(instructions: string, input: unknown): Promise<s
       max_tokens: 500,
       temperature: 0.2,
       system: instructions,
-      messages: [{ role: "user", content: JSON.stringify(input) }]
+      messages: [{ role: "user", content: JSON.stringify(input) }],
+      tools: [
+        {
+          name: "emit_json",
+          description: "Return the final answer as structured JSON only.",
+          input_schema: schema
+        }
+      ],
+      tool_choice: { type: "tool", name: "emit_json" }
     })
   });
 
@@ -109,7 +134,13 @@ async function requestAnthropic(instructions: string, input: unknown): Promise<s
     throw new Error(`Anthropic request failed: ${response.status} ${body}`);
   }
 
-  const payload = (await response.json()) as { content?: Array<{ type?: string; text?: string }> };
+  const payload = (await response.json()) as { content?: AnthropicContentPart[] };
+  const toolInput = payload.content?.find((part) => part.type === "tool_use" && part.name === "emit_json")?.input;
+
+  if (toolInput !== undefined) {
+    return JSON.stringify(toolInput);
+  }
+
   const text =
     payload.content
       ?.map((part) => (part.type === "text" && typeof part.text === "string" ? part.text : ""))
@@ -117,10 +148,36 @@ async function requestAnthropic(instructions: string, input: unknown): Promise<s
       .join("\n") ?? "";
 
   if (!text) {
-    throw new Error("Anthropic response had no text output.");
+    throw new Error("Anthropic response had no JSON output.");
   }
 
   return text;
+}
+
+function responseSchema(required: string[]): JsonSchema {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      text: { type: "string" },
+      followUpPrompt: { type: "string" },
+      reviewMemory: {
+        anyOf: [
+          {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              learningEdge: { type: "string" },
+              evidence: { type: "string" }
+            },
+            required: ["learningEdge", "evidence"]
+          },
+          { type: "null" }
+        ]
+      }
+    },
+    required
+  };
 }
 
 export function parseJsonResponse<T>(text: string): T {

@@ -423,7 +423,8 @@ h2 {
 
 .review-layout {
   display: grid;
-  grid-template-columns: minmax(0, 720px) minmax(336px, 1fr);
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
   gap: 18px;
   align-items: start;
 }
@@ -476,6 +477,15 @@ h2 {
 .review-card {
   position: relative;
   overflow: hidden;
+}
+
+.review-layout.with-feedback .review-card {
+  display: grid;
+  gap: 16px;
+}
+
+.review-layout.with-feedback .question {
+  margin-bottom: 0;
 }
 
 .session-strip {
@@ -569,9 +579,18 @@ h2 {
   line-height: 1.45;
 }
 
-.coaching-thread {
+.coaching-thread,
+.coaching-card,
+.coaching-reply {
   display: grid;
   gap: 14px;
+}
+
+.coaching-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: color-mix(in oklch, var(--field) 84%, transparent);
 }
 
 .messages {
@@ -637,6 +656,13 @@ h2 {
 .explanation {
   margin-top: 10px;
   color: var(--muted);
+}
+
+.rating-section {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
 }
 
 .rating-heading {

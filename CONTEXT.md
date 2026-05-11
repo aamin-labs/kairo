@@ -55,15 +55,28 @@ _Avoid_: Repeat, copy
 ## Relationships
 
 - **Feedback** may include one **Follow-up prompt**
-- **Feedback** separates critique text from any **Follow-up prompt**
+- **Feedback** separates critique text from any **Follow-up prompt** in the domain model
 - A **Coaching thread** continues from the learner's submitted answer instead of replacing it
 - The learner's submitted answer appears as the first learner message in the **Coaching thread**
+- The learner's submitted answer appears read-only once **Feedback** exists
+- Initial **Feedback** appears to the learner as the first coach message in the **Coaching thread**
+- Initial **Feedback** appears as normal tutor speech without a visible feedback label
+- When initial **Feedback** includes a **Follow-up prompt**, they appear together as one coach message with the prompt last
+- The expected answer appears as a separate inline card outside the **Coaching thread** because it is source truth, not tutor speech
+- The expected-answer card keeps a clear heading so source truth is not confused with tutor speech
+- The reply box belongs visually to the **Coaching thread** because it continues the conversation
 - A **Follow-up prompt** may receive one or more **Follow-up replies**
 - Follow-up replies continue through coaching behavior, not feedback behavior
 - A **Coaching response** may correct the learner and ask one next useful question
+- When a **Coaching response** includes a next **Follow-up prompt**, they appear together as one coach message with the prompt last
 - A **Coaching thread** belongs to one review attempt
 - A **Coaching thread** is capped at four learner replies in the MVP
 - A full **Coaching thread** is saved with the review attempt but does not affect scheduling
+- After **Feedback** appears, the review flow remains single-column: question, coaching card, expected-answer card, then rating
+- The coaching card contains the learner answer, tutor feedback, and optional reply box
+- **Rating** appears after the expected-answer card while remaining available once **Feedback** exists
+- The review flow avoids generic rating prompts when rating buttons are already visible
+- A **Rating** remains outside the **Coaching thread** because it is the learner's judgment, not conversation
 - A **Rating** remains available even when a **Coaching thread** is active
 - **Review memory** may inform later **Feedback** for the same card
 - **Review memory** centers on the current **Learning edge**, not a full transcript
@@ -91,7 +104,7 @@ _Avoid_: Repeat, copy
 ## Flagged ambiguities
 
 - "follow up" could mean part of **Feedback** or a separate **Follow-up prompt**; resolved: it is a separate optional coaching turn after feedback.
-- **Feedback** used to be one prose blob; resolved: critique text and **Follow-up prompt** are separate fields.
+- **Feedback** used to be one prose blob; resolved: critique text and **Follow-up prompt** are separate fields, but may be presented together as one coach message.
 - "chat" could imply open-ended conversation; resolved: a **Coaching thread** is capped at four learner replies in the MVP.
 - "cache" could imply reusing technical outputs to avoid model calls; resolved: the domain concept is **Review memory**, which exists to improve learner-aware feedback.
 - "history" could imply storing every prior turn; resolved: the MVP memory unit is a compact **Fragile point** signal.

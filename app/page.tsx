@@ -382,104 +382,91 @@ export default function Home() {
                 </div>
               </>
             ) : (
-              <section className="coaching-thread" aria-label="Coaching thread">
-                <div className="messages">
-                  {coachingThread.map((message, index) => (
-                    <p className={`message ${message.role}`} key={`${message.role}-${index}`}>
-                      {message.text}
-                    </p>
-                  ))}
-                  {isCoaching ? <p className="message coach pending">Thinking...</p> : null}
-                </div>
+              <>
+                <section className="coaching-card" aria-label="Coaching thread">
+                  <div className="messages">
+                    {coachingThread.map((message, index) => (
+                      <p className={`message ${message.role}`} key={`${message.role}-${index}`}>
+                        {message.text}
+                      </p>
+                    ))}
+                    {isCoaching ? <p className="message coach pending">Thinking...</p> : null}
+                  </div>
 
-                {apiError ? <p className="error">{apiError}</p> : null}
+                  {apiError ? <p className="error">{apiError}</p> : null}
 
-                {canReplyToFollowUp ? (
-                  <>
-                    <label className="answer-label" htmlFor="follow-up-reply">
-                      Reply
-                    </label>
-                    <textarea
-                      id="follow-up-reply"
-                      className="answer-input follow-up-input"
-                      value={followUpReply}
-                      onChange={(event) => setFollowUpReply(event.target.value)}
-                      onKeyDown={(event) => {
-                        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                          event.preventDefault();
-                          void submitFollowUpReply();
-                        }
-                      }}
-                      placeholder="Reply to the coach, or rate when ready."
-                      disabled={isCoaching}
-                    />
-                    <div className="actions">
-                      <button
-                        className="primary"
-                        onClick={submitFollowUpReply}
-                        disabled={isCoaching || !followUpReply.trim()}
-                      >
-                        {isCoaching ? "Sending..." : "Send reply"}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="hint">Rate when ready.</p>
-                )}
-              </section>
+                  {canReplyToFollowUp ? (
+                    <section className="coaching-reply" aria-label="Reply to coach">
+                      <label className="answer-label" htmlFor="follow-up-reply">
+                        Reply
+                      </label>
+                      <textarea
+                        id="follow-up-reply"
+                        className="answer-input follow-up-input"
+                        value={followUpReply}
+                        onChange={(event) => setFollowUpReply(event.target.value)}
+                        onKeyDown={(event) => {
+                          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                            event.preventDefault();
+                            void submitFollowUpReply();
+                          }
+                        }}
+                        placeholder="Reply to the coach, or rate when ready."
+                        disabled={isCoaching}
+                      />
+                      <div className="actions">
+                        <button
+                          className="primary"
+                          onClick={submitFollowUpReply}
+                          disabled={isCoaching || !followUpReply.trim()}
+                        >
+                          {isCoaching ? "Sending..." : "Send reply"}
+                        </button>
+                      </div>
+                    </section>
+                  ) : null}
+                </section>
+
+                <section className="truth expected-answer-card" aria-label="Expected answer">
+                  <h2>Expected answer</h2>
+                  <SafeHtml html={current.answer} />
+                  {current.explanation ? <SafeHtml className="explanation" html={current.explanation} /> : null}
+                </section>
+
+                <section className="rating-section" aria-label="Rate recall">
+                  <div className="rating-heading">
+                    <h2>Rate recall</h2>
+                    <span>1-4</span>
+                  </div>
+                  <div className="rating-grid">
+                    <button onClick={() => rateCard("again")}>
+                      <span>Again</span>
+                      <small>{ratingIntervals?.again}</small>
+                      <kbd>1</kbd>
+                    </button>
+                    <button onClick={() => rateCard("hard")}>
+                      <span>Hard</span>
+                      <small>{ratingIntervals?.hard}</small>
+                      <kbd>2</kbd>
+                    </button>
+                    <button onClick={() => rateCard("good")}>
+                      <span>Good</span>
+                      <small>{ratingIntervals?.good}</small>
+                      <kbd>3</kbd>
+                    </button>
+                    <button onClick={() => rateCard("easy")}>
+                      <span>Easy</span>
+                      <small>{ratingIntervals?.easy}</small>
+                      <kbd>4</kbd>
+                    </button>
+                  </div>
+                </section>
+              </>
             )}
-
           </article>
-
-          {feedback ? (
-            <aside className="feedback-panel">
-              <div className="truth">
-                <h2>Expected answer</h2>
-                <SafeHtml html={current.answer} />
-                {current.explanation ? <SafeHtml className="explanation" html={current.explanation} /> : null}
-              </div>
-
-              <section className="feedback-prose">
-                <h2>Feedback</h2>
-                <p>{feedback.text}</p>
-              </section>
-
-              <div className="rating-heading">
-              <h2>Rate recall</h2>
-              <span>1-4</span>
-            </div>
-            <div className="rating-grid">
-                <button onClick={() => rateCard("again")}>
-                  <span>Again</span>
-                  <small>{ratingIntervals?.again}</small>
-                  <kbd>1</kbd>
-                </button>
-                <button onClick={() => rateCard("hard")}>
-                  <span>Hard</span>
-                  <small>{ratingIntervals?.hard}</small>
-                  <kbd>2</kbd>
-                </button>
-                <button onClick={() => rateCard("good")}>
-                  <span>Good</span>
-                  <small>{ratingIntervals?.good}</small>
-                  <kbd>3</kbd>
-                </button>
-                <button onClick={() => rateCard("easy")}>
-                  <span>Easy</span>
-                  <small>{ratingIntervals?.easy}</small>
-                  <kbd>4</kbd>
-                </button>
-              </div>
-            </aside>
-          ) : null}
         </section>
       )}
 
-      <footer className="footer">
-        <button className="text-button" onClick={resetAll}>
-          Reset deck
-        </button>
-      </footer>
     </main>
   );
 }

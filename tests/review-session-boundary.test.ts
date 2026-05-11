@@ -24,6 +24,10 @@ test("review session owns answer, coaching, rating, scheduling, memory, and pers
   session.load();
   await session.requestHint(now);
   await session.submitAnswer("The learner chooses Good.", now);
+  assert.deepEqual(session.getState().active.coachingThread, [
+    { role: "learner", text: "The learner chooses Good." },
+    { role: "coach", text: "Mostly right; name the trigger.\n\nWhat starts the next review?" }
+  ]);
   await session.submitFollowUpReply("The learner rating.", now);
   const state = session.rateCurrentCard("good", now);
 

@@ -10,7 +10,7 @@ const feedback: Feedback = {
 };
 const coachingThread = [
   { role: "learner" as const, text: "my answer" },
-  { role: "coach" as const, text: "What mechanism makes this work?" },
+  { role: "coach" as const, text: "Good enough. Core idea present, but name the mechanism more precisely.\n\nWhat mechanism makes this work?" },
   { role: "learner" as const, text: "Spaced retrieval." },
   { role: "coach" as const, text: "Correct. Name the schedule trigger next." }
 ];
