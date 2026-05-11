@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requestHint } from "@/lib/coaching";
 import type { ImportedCard } from "@/lib/types";
 
+export const maxDuration = 30;
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { card?: ImportedCard };

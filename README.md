@@ -17,6 +17,19 @@ ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
+## Deploy on Vercel
+
+This is a standard Next.js app; Vercel auto-detects it.
+
+1. Push this repo to GitHub.
+2. In Vercel, import the repo as a Next.js project.
+3. Add environment variables in Vercel Project Settings:
+   - `ANTHROPIC_API_KEY`
+   - `ANTHROPIC_MODEL` (optional; defaults to `claude-sonnet-4-6`)
+4. Deploy. Build command stays `npm run build`; install command stays `npm install`.
+
+API routes use a 30-second max duration for Anthropic calls.
+
 ## MVP Scope
 
 - Paste CSV with `Question,Answer,Context,Explanation`.

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requestFeedback } from "@/lib/coaching";
 import type { ImportedCard, ReviewMemory } from "@/lib/types";
 
+export const maxDuration = 30;
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
