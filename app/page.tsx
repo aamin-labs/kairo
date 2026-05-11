@@ -246,9 +246,9 @@ export default function Home() {
           <h1>Review</h1>
         </div>
         <div className="stats" aria-label="Deck stats">
-          <span>{snapshot.dueCount} due</span>
-          <span>{snapshot.newCount} new</span>
-          <span>{snapshot.totalCount} total</span>
+          <span><strong>{snapshot.dueCount}</strong><small>due</small></span>
+          <span><strong>{snapshot.newCount}</strong><small>new</small></span>
+          <span><strong>{snapshot.totalCount}</strong><small>total</small></span>
         </div>
       </header>
 
@@ -339,6 +339,12 @@ export default function Home() {
       ) : (
         <section className={`review-layout ${feedback ? "with-feedback" : "solo-review"}`}>
           <article className="review-card">
+            {feedback ? (
+              <div className="card-tools" aria-hidden="true">
+                <span className="bookmark-icon" />
+                <span className="menu-dots">•••</span>
+              </div>
+            ) : null}
             <div className="session-strip" aria-label="Review progress">
               <span>
                 Card {sessionReviewedCount + 1} of {sessionTotal}
@@ -384,12 +390,15 @@ export default function Home() {
             ) : (
               <>
                 <section className="coaching-card" aria-label="Coaching thread">
+                  <div className="coach-heading"><span aria-hidden="true">✦</span> Coach feedback</div>
                   <div className="messages">
-                    {coachingThread.map((message, index) => (
-                      <p className={`message ${message.role}`} key={`${message.role}-${index}`}>
-                        {message.text}
-                      </p>
-                    ))}
+                    {coachingThread
+                      .filter((message, index) => !(index === 0 && message.role === "learner"))
+                      .map((message, index) => (
+                        <p className={`message ${message.role}`} key={`${message.role}-${index}`}>
+                          {message.text}
+                        </p>
+                      ))}
                     {isCoaching ? <p className="message coach pending">Thinking...</p> : null}
                   </div>
 
@@ -425,6 +434,10 @@ export default function Home() {
                       </div>
                     </section>
                   ) : null}
+                </section>
+
+                <section className="learner-answer-card" aria-label="Your answer">
+                  {answer}
                 </section>
 
                 <section className="truth expected-answer-card" aria-label="Expected answer">
