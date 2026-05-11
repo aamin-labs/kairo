@@ -106,7 +106,8 @@ export default function Home() {
       setImportResult("");
       setCsvText("");
       setActiveTab("review");
-      resetReviewState();
+      setFollowUpReply("");
+      setApiError("");
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Import failed.");
     }
@@ -120,7 +121,8 @@ export default function Home() {
       setImportResult(`Added ${result.addedCount} cards. Skipped ${result.skippedDuplicateCount} duplicates.`);
       setCsvText("");
       setActiveTab("review");
-      resetReviewState();
+      setFollowUpReply("");
+      setApiError("");
     } catch (error) {
       setImportResult("");
       setImportError(error instanceof Error ? error.message : "Import failed.");
@@ -182,11 +184,6 @@ export default function Home() {
     setCsvText("");
     setImportError("");
     setImportResult("");
-    resetReviewState();
-  }
-
-  function resetReviewState() {
-    setSessionState(session().resetActiveReview());
     setFollowUpReply("");
     setApiError("");
   }

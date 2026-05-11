@@ -63,18 +63,6 @@ export type ReviewSessionState = {
   sessionReviewedCount: number;
 };
 
-export type SubmitAnswerResult = {
-  feedback: Feedback;
-  coachingThread: CoachingMessage[];
-  hasOpenFollowUpPrompt: boolean;
-};
-
-export type SubmitFollowUpResult = {
-  response: CoachingResponse;
-  coachingThread: CoachingMessage[];
-  hasOpenFollowUpPrompt: boolean;
-};
-
 const EMPTY_ACTIVE_REVIEW: ActiveReview = {
   answer: "",
   feedback: null,
@@ -114,13 +102,13 @@ export class ReviewSession {
 
   importDeck(csvText: string, now = new Date()): ReviewSessionState {
     const cards = importReviewDeck(csvText, now);
-    this.replaceCards(cards, true);
+    this.replaceCards(cards);
     return this.getState();
   }
 
   appendDeck(csvText: string, now = new Date()): { state: ReviewSessionState; addedCount: number; skippedDuplicateCount: number } {
     const result = appendReviewDeck(this.state.cards, csvText, now);
-    this.replaceCards(result.cards, true);
+    this.replaceCards(result.cards);
     return {
       state: this.getState(),
       addedCount: result.addedCount,
@@ -131,11 +119,6 @@ export class ReviewSession {
   clear(): ReviewSessionState {
     this.deckStore.clear();
     this.state = { cards: [], active: { ...EMPTY_ACTIVE_REVIEW }, sessionReviewedCount: 0 };
-    return this.getState();
-  }
-
-  resetActiveReview(): ReviewSessionState {
-    this.state = { ...this.state, active: { ...EMPTY_ACTIVE_REVIEW } };
     return this.getState();
   }
 
@@ -153,7 +136,7 @@ export class ReviewSession {
     return hint;
   }
 
-  async submitAnswer(answer: string, now = new Date()): Promise<SubmitAnswerResult> {
+  async submitAnswer(answer: string, now = new Date()): Promise<void> {
     const current = this.currentCard(now);
     if (!current) throw new Error("No current card.");
     if (!answer.trim()) throw new Error("Answer is required.");
@@ -175,11 +158,9 @@ export class ReviewSession {
         hasOpenFollowUpPrompt: Boolean(feedback.followUpPrompt)
       }
     };
-
-    return { feedback, coachingThread, hasOpenFollowUpPrompt: this.state.active.hasOpenFollowUpPrompt };
   }
 
-  async submitFollowUpReply(reply: string, now = new Date()): Promise<SubmitFollowUpResult> {
+  async submitFollowUpReply(reply: string, now = new Date()): Promise<void> {
     const current = this.currentCard(now);
     const { answer, feedback, coachingThread, proposedReviewMemory } = this.state.active;
     if (!current || !feedback) throw new Error("No active coaching thread.");
@@ -211,8 +192,6 @@ export class ReviewSession {
           hasOpenFollowUpPrompt: Boolean(response.followUpPrompt)
         }
       };
-
-      return { response, coachingThread: finalThread, hasOpenFollowUpPrompt: this.state.active.hasOpenFollowUpPrompt };
     } catch (error) {
       this.state = { ...this.state, active: { ...this.state.active, coachingThread, hasOpenFollowUpPrompt: true } };
       throw error;
@@ -246,11 +225,11 @@ export class ReviewSession {
     return this.getState();
   }
 
-  private replaceCards(cards: ReviewCard[], resetCount: boolean): void {
+  private replaceCards(cards: ReviewCard[]): void {
     this.state = {
       cards,
       active: { ...EMPTY_ACTIVE_REVIEW },
-      sessionReviewedCount: resetCount ? 0 : this.state.sessionReviewedCount
+      sessionReviewedCount: 0
     };
     this.deckStore.save(cards);
   }

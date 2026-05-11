@@ -28,7 +28,7 @@ export function appendReviewDeck(existingCards: ReviewCard[], csvText: string, n
     newCards.push(card);
   }
 
-  const addedCards = toReviewCards(newCards, now, nextCardIdPrefix(existingCards, newCards.length, now));
+  const addedCards = toReviewCards(newCards, now);
 
   return {
     cards: [...existingCards, ...addedCards],
@@ -37,12 +37,12 @@ export function appendReviewDeck(existingCards: ReviewCard[], csvText: string, n
   };
 }
 
-export function toReviewCards(cards: ImportedCard[], now = new Date(), idPrefix = cardIdPrefix(now)): ReviewCard[] {
+export function toReviewCards(cards: ImportedCard[], now = new Date()): ReviewCard[] {
   const dueAt = now.toISOString();
 
-  return cards.map((card, index) => ({
+  return cards.map((card) => ({
     ...card,
-    id: `${idPrefix}_${index}`,
+    id: crypto.randomUUID(),
     intervalDays: 0,
     dueAt,
     seen: false
@@ -55,24 +55,4 @@ function cardKey(card: Pick<ImportedCard, "question" | "answer">): string {
 
 function normalizeCardText(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-function cardIdPrefix(now: Date): string {
-  return `card_${now.toISOString().replace(/\D/g, "").slice(0, 17)}`;
-}
-
-function nextCardIdPrefix(existingCards: ReviewCard[], cardCount: number, now: Date): string {
-  const existingIds = new Set(existingCards.map((card) => card.id));
-  const basePrefix = cardIdPrefix(now);
-
-  if (cardCount === 0) return `${basePrefix}_0`;
-
-  for (let suffix = 0; ; suffix += 1) {
-    const idPrefix = `${basePrefix}_${suffix}`;
-
-    for (let index = 0; index < cardCount; index += 1) {
-      if (existingIds.has(`${idPrefix}_${index}`)) break;
-      if (index === cardCount - 1) return idPrefix;
-    }
-  }
 }

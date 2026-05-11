@@ -3,6 +3,8 @@ import test from "node:test";
 import { appendReviewDeck, importReviewDeck } from "../lib/card-import.ts";
 import type { ReviewCard } from "../lib/types.ts";
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 test("imports CSV into new review cards", () => {
   const cards = importReviewDeck(
     `Question,Answer,Context,Explanation
@@ -11,16 +13,17 @@ test("imports CSV into new review cards", () => {
     new Date("2026-05-08T08:00:00.000Z")
   );
 
+  assert.equal(new Set(cards.map((card) => card.id)).size, 2);
+  assert.match(cards[0].id, UUID_PATTERN);
   assert.deepEqual(
     cards.map((card) => ({
-      id: card.id,
       question: card.question,
       seen: card.seen,
       dueAt: card.dueAt
     })),
     [
-      { id: "card_20260508080000000_0", question: "Q1", seen: false, dueAt: "2026-05-08T08:00:00.000Z" },
-      { id: "card_20260508080000000_1", question: "Q2", seen: false, dueAt: "2026-05-08T08:00:00.000Z" }
+      { question: "Q1", seen: false, dueAt: "2026-05-08T08:00:00.000Z" },
+      { question: "Q2", seen: false, dueAt: "2026-05-08T08:00:00.000Z" }
     ]
   );
 });
@@ -63,11 +66,12 @@ test("appends new cards without changing existing review progress", () => {
   assert.equal(result.addedCount, 1);
   assert.equal(result.skippedDuplicateCount, 0);
   assert.equal(result.cards[0], existing[0]);
+  assert.match(result.cards[1].id, UUID_PATTERN);
   assert.deepEqual(
-    result.cards.map((card) => ({ id: card.id, question: card.question, seen: card.seen, dueAt: card.dueAt })),
+    result.cards.map((card) => ({ question: card.question, seen: card.seen, dueAt: card.dueAt })),
     [
-      { id: "existing", question: "Q1", seen: true, dueAt: "2026-05-13T08:00:00.000Z" },
-      { id: "card_20260508080000000_0_0", question: "Q2", seen: false, dueAt: "2026-05-08T08:00:00.000Z" }
+      { question: "Q1", seen: true, dueAt: "2026-05-13T08:00:00.000Z" },
+      { question: "Q2", seen: false, dueAt: "2026-05-08T08:00:00.000Z" }
     ]
   );
 });
@@ -90,31 +94,21 @@ test("append skips normalized duplicates from existing deck and same CSV", () =>
   assert.equal(result.cards[1].question, "Q2");
 });
 
-test("append generates unique ids when timestamp prefix already exists", () => {
-  const existing = [
-    reviewCard({ id: "card_20260508080000000_0", question: "Q1", answer: "A1" }),
-    reviewCard({ id: "card_20260508080000000_0_0", question: "Q2", answer: "A2" }),
-    reviewCard({ id: "card_20260508080000000_1_1", question: "Q3", answer: "A3" })
-  ];
+test("append gives new cards unique ids", () => {
+  const existing = [reviewCard({ id: "existing", question: "Q1", answer: "A1" })];
 
   const result = appendReviewDeck(
     existing,
     `Question,Answer,Context,Explanation
-"Q4","A4","SRS","E4"
-"Q5","A5","SRS","E5"`,
+"Q2","A2","SRS","E2"
+"Q3","A3","SRS","E3"`,
     new Date("2026-05-08T08:00:00.000Z")
   );
 
-  assert.deepEqual(
-    result.cards.map((card) => card.id),
-    [
-      "card_20260508080000000_0",
-      "card_20260508080000000_0_0",
-      "card_20260508080000000_1_1",
-      "card_20260508080000000_2_0",
-      "card_20260508080000000_2_1"
-    ]
-  );
+  assert.equal(new Set(result.cards.map((card) => card.id)).size, 3);
+  assert.equal(result.cards[0].id, "existing");
+  assert.match(result.cards[1].id, UUID_PATTERN);
+  assert.match(result.cards[2].id, UUID_PATTERN);
 });
 
 function reviewCard(overrides: Partial<ReviewCard> = {}): ReviewCard {
