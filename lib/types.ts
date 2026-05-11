@@ -5,6 +5,7 @@ export type ImportedCard = {
   answer: string;
   context: string;
   explanation: string;
+  noteId?: string;
 };
 
 export type ReviewMemory = {
@@ -20,6 +21,8 @@ export type ReviewCard = ImportedCard & {
   intervalDays: number;
   dueAt: string;
   seen: boolean;
+  noteId?: string;
+  buriedUntil?: string;
   reviewMemory?: ReviewMemory;
   lastAttempt?: {
     answer: string;

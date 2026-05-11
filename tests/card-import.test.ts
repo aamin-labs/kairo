@@ -40,6 +40,17 @@ Line two"`,
   assert.equal(cards[0].explanation, "Line one\nLine two");
 });
 
+test("imports optional note ids for sibling cards", () => {
+  const cards = importReviewDeck(
+    `Note ID,Question,Answer,Context,Explanation
+"note-1","Q1","A1","RAG","E1"
+"note-1","Q2","A2","RAG","E2"`,
+    new Date("2026-05-08T08:00:00.000Z")
+  );
+
+  assert.deepEqual(cards.map((card) => card.noteId), ["note-1", "note-1"]);
+});
+
 test("rejects CSV without required Anki columns", () => {
   assert.throws(() => importReviewDeck("Question,Answer\nQ,A"), /Missing required columns/);
 });

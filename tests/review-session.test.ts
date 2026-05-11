@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getReviewSnapshot, recordReviewAttempt } from "../lib/review-session.ts";
+import { getReviewSnapshot, recordReviewAttempt, ReviewSession } from "../lib/review-session.ts";
 import type { Feedback, ReviewCard } from "../lib/types.ts";
 
 const now = new Date("2026-05-08T08:00:00.000Z");
@@ -19,7 +19,8 @@ test("snapshot exposes current card and queue counts", () => {
   const snapshot = getReviewSnapshot(
     [
       card({ id: "due", seen: true, dueAt: "2026-05-07T08:00:00.000Z" }),
-      card({ id: "new", seen: false })
+      card({ id: "new", seen: false }),
+      card({ id: "buried", seen: false, buriedUntil: "2026-05-09T00:00:00.000Z" })
     ],
     now
   );
@@ -27,7 +28,8 @@ test("snapshot exposes current card and queue counts", () => {
   assert.equal(snapshot.current?.id, "due");
   assert.equal(snapshot.dueCount, 1);
   assert.equal(snapshot.newCount, 1);
-  assert.equal(snapshot.totalCount, 2);
+  assert.equal(snapshot.buriedCount, 1);
+  assert.equal(snapshot.totalCount, 3);
 });
 
 test("recording Good saves attempt and schedules a new card three days out", () => {
@@ -124,6 +126,60 @@ test("recording Again returns card in ten minutes without changing interval", ()
   assert.equal(reviewed.dueAt, "2026-05-08T08:10:00.000Z");
 });
 
+test("burying hides a card until the next day and unbury restores it", () => {
+  const session = new ReviewSession(store([card({ id: "target", seen: false })]), coach());
+  session.load();
+
+  let state = session.buryCurrentCard(now);
+  assert.equal(state.cards[0].buriedUntil, "2026-05-09T00:00:00.000Z");
+  assert.equal(session.getSnapshot(now).current, undefined);
+
+  state = session.unburyAll();
+  assert.equal(state.cards[0].buriedUntil, undefined);
+  assert.equal(session.getSnapshot(now).current?.id, "target");
+});
+
+test("burying a note hides sibling cards together", () => {
+  const session = new ReviewSession(
+    store([
+      card({ id: "front", noteId: "note-1" }),
+      card({ id: "back", noteId: "note-1" }),
+      card({ id: "other", noteId: "note-2" })
+    ]),
+    coach()
+  );
+  session.load();
+
+  const state = session.buryCurrentNote(now);
+
+  assert.deepEqual(
+    state.cards.map((item) => [item.id, item.buriedUntil]),
+    [
+      ["front", "2026-05-09T00:00:00.000Z"],
+      ["back", "2026-05-09T00:00:00.000Z"],
+      ["other", undefined]
+    ]
+  );
+  assert.equal(session.getSnapshot(now).current?.id, "other");
+});
+
+test("rating a note card automatically buries siblings", async () => {
+  const session = new ReviewSession(
+    store([
+      card({ id: "front", noteId: "note-1" }),
+      card({ id: "back", noteId: "note-1" })
+    ]),
+    coach()
+  );
+  session.load();
+  await session.submitAnswer("answer", now);
+
+  const state = session.rateCurrentCard("good", now);
+
+  assert.equal(state.cards[0].buriedUntil, undefined);
+  assert.equal(state.cards[1].buriedUntil, "2026-05-09T00:00:00.000Z");
+});
+
 test("snapshot queues due cards before capped new cards", () => {
   const snapshot = getReviewSnapshot(
     [
@@ -140,6 +196,32 @@ test("snapshot queues due cards before capped new cards", () => {
     ["due", "new-a", "new-b"]
   );
 });
+
+function store(cards: ReviewCard[]) {
+  return {
+    load: () => cards,
+    save: (next: ReviewCard[]) => {
+      cards = next;
+    },
+    clear: () => {
+      cards = [];
+    }
+  };
+}
+
+function coach() {
+  return {
+    async requestHint() {
+      return { hint: "Hint." };
+    },
+    async requestFeedback() {
+      return feedback;
+    },
+    async requestCoaching() {
+      return { text: "Coaching." };
+    }
+  };
+}
 
 function card(overrides: Partial<ReviewCard> = {}): ReviewCard {
   return {

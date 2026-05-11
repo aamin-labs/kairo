@@ -100,7 +100,7 @@ h2 { margin-bottom: 12px; color: var(--accent); font-size: .84rem; font-weight: 
 .subtle { max-width: 64ch; line-height: 1.55; }
 
 .topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 48px; margin: 0 0 34px; }
-.stats { display: grid; grid-template-columns: repeat(3, 92px); align-items: center; }
+.stats { display: grid; grid-template-columns: repeat(4, 82px); align-items: center; }
 .stats span { display: grid; justify-items: center; gap: 3px; min-height: 58px; border-left: 1px solid var(--line); color: var(--muted); }
 .stats strong { color: var(--ink); font-size: 1.72rem; line-height: 1; }
 .stats small { color: var(--accent); font-size: .8rem; font-weight: 700; }
@@ -205,7 +205,7 @@ h2 { margin-bottom: 12px; color: var(--accent); font-size: .84rem; font-weight: 
   .shell { width: min(100% - 28px, 760px); padding-top: 76px; }
   h1 { font-size: clamp(2.5rem, 12vw, 4rem); }
   .topbar { align-items: start; flex-direction: column; gap: 22px; }
-  .stats { width: 100%; grid-template-columns: repeat(3, 1fr); }
+  .stats { width: 100%; grid-template-columns: repeat(4, 1fr); }
   .review-layout.with-feedback .review-card { grid-template-columns: 1fr; grid-template-areas: "progress" "meta" "question" "learner" "coach" "expected" "rating"; }
   .review-layout.with-feedback .review-card::after { display: none; }
   .add-cards-layout { grid-template-columns: 1fr; }

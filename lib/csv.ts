@@ -10,6 +10,7 @@ export function parseCardsCsv(input: string): ImportedCard[] {
 
   const headers = rows[0].map((header) => header.trim());
   const indexes = REQUIRED_HEADERS.map((header) => headers.indexOf(header));
+  const noteIndex = optionalHeaderIndex(headers, ["NoteId", "Note ID", "Note"]);
   const missing = REQUIRED_HEADERS.filter((_, index) => indexes[index] === -1);
 
   if (missing.length > 0) {
@@ -20,11 +21,13 @@ export function parseCardsCsv(input: string): ImportedCard[] {
     .slice(1)
     .filter((row) => row.some((cell) => cell.trim().length > 0))
     .map((row, rowIndex) => {
+      const noteId = noteIndex === -1 ? "" : cell(row, noteIndex);
       const card = {
         question: cell(row, indexes[0]),
         answer: cell(row, indexes[1]),
         context: cell(row, indexes[2]),
-        explanation: cell(row, indexes[3])
+        explanation: cell(row, indexes[3]),
+        ...(noteId ? { noteId } : {})
       };
 
       if (!card.question || !card.answer) {
@@ -84,4 +87,8 @@ export function parseCsvRows(input: string): string[][] {
 
 function cell(row: string[], index: number): string {
   return (row[index] ?? "").trim();
+}
+
+function optionalHeaderIndex(headers: string[], names: string[]): number {
+  return headers.findIndex((header) => names.includes(header));
 }

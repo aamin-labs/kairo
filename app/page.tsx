@@ -61,7 +61,10 @@ export default function Home() {
     return sessionRef.current;
   }
 
-  const snapshot = useMemo(() => sessionRef.current?.getSnapshot() ?? { queue: [], dueCount: 0, newCount: 0, totalCount: 0 }, [sessionState]);
+  const snapshot = useMemo(
+    () => sessionRef.current?.getSnapshot() ?? { queue: [], dueCount: 0, newCount: 0, buriedCount: 0, totalCount: 0 },
+    [sessionState]
+  );
   const { answer, feedback, coachingThread, hasOpenFollowUpPrompt, hint } = sessionState.active;
   const { cards, sessionReviewedCount } = sessionState;
   const current = snapshot.current;
@@ -245,6 +248,7 @@ export default function Home() {
         <div className="stats" aria-label="Deck stats">
           <span><strong>{snapshot.dueCount}</strong><small>due</small></span>
           <span><strong>{snapshot.newCount}</strong><small>new</small></span>
+          <span><strong>{snapshot.buriedCount}</strong><small>buried</small></span>
           <span><strong>{snapshot.totalCount}</strong><small>total</small></span>
         </div>
       </header>
@@ -266,6 +270,11 @@ export default function Home() {
         >
           Add cards
         </button>
+        {snapshot.buriedCount > 0 ? (
+          <button type="button" onClick={() => setSessionState(session().unburyAll())}>
+            Unbury {snapshot.buriedCount}
+          </button>
+        ) : null}
       </nav>
 
       {activeTab === "add" ? (
@@ -329,6 +338,11 @@ export default function Home() {
               <p className="subtle">New cards are capped at 20 per day. Come back when reviews mature.</p>
             </>
           )}
+          {snapshot.buriedCount > 0 ? (
+            <button className="primary" onClick={() => setSessionState(session().unburyAll())}>
+              Unbury {snapshot.buriedCount} cards
+            </button>
+          ) : null}
           <button className="secondary" onClick={resetAll}>
             Reset deck
           </button>
@@ -376,6 +390,12 @@ export default function Home() {
                 {apiError ? <p className="error">{apiError}</p> : null}
 
                 <div className="actions">
+                  <button className="secondary" onClick={() => setSessionState(session().buryCurrentCard())}>
+                    Bury card
+                  </button>
+                  <button className="secondary" onClick={() => setSessionState(session().buryCurrentNote())}>
+                    Bury note
+                  </button>
                   <button className="secondary" onClick={requestHint} disabled={isHinting}>
                     {isHinting ? "Hinting..." : "Hint"}
                   </button>

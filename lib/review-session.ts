@@ -1,5 +1,5 @@
 import { appendReviewDeck, importReviewDeck } from "./card-import.ts";
-import { applyRating, reviewQueue } from "./scheduler.ts";
+import { applyRating, isBuried, reviewQueue } from "./scheduler.ts";
 import type {
   CoachingMessage,
   CoachingResponse,
@@ -17,6 +17,7 @@ export type ReviewSnapshot = {
   current?: ReviewCard;
   dueCount: number;
   newCount: number;
+  buriedCount: number;
   totalCount: number;
 };
 
@@ -203,16 +204,20 @@ export class ReviewSession {
     const { answer, feedback, coachingThread, proposedReviewMemory } = this.state.active;
     if (!current || !feedback) return this.getState();
 
-    const cards = recordReviewAttempt(
-      this.state.cards,
-      {
-        cardId: current.id,
-        answer,
-        feedback,
-        coachingThread,
-        rating,
-        reviewMemory: proposedReviewMemory
-      },
+    const cards = burySiblingCards(
+      recordReviewAttempt(
+        this.state.cards,
+        {
+          cardId: current.id,
+          answer,
+          feedback,
+          coachingThread,
+          rating,
+          reviewMemory: proposedReviewMemory
+        },
+        now
+      ),
+      current,
       now
     );
 
@@ -221,6 +226,38 @@ export class ReviewSession {
       active: { ...EMPTY_ACTIVE_REVIEW },
       sessionReviewedCount: this.state.sessionReviewedCount + 1
     };
+    this.deckStore.save(cards);
+    return this.getState();
+  }
+
+  buryCurrentCard(now = new Date()): ReviewSessionState {
+    const current = this.currentCard(now);
+    if (!current) return this.getState();
+
+    const cards = buryCards(this.state.cards, (card) => card.id === current.id, now);
+    this.state = { ...this.state, cards, active: { ...EMPTY_ACTIVE_REVIEW } };
+    this.deckStore.save(cards);
+    return this.getState();
+  }
+
+  buryCurrentNote(now = new Date()): ReviewSessionState {
+    const current = this.currentCard(now);
+    if (!current) return this.getState();
+
+    const cards = buryCards(this.state.cards, (card) => card.id === current.id || sameNote(card, current), now);
+    this.state = { ...this.state, cards, active: { ...EMPTY_ACTIVE_REVIEW } };
+    this.deckStore.save(cards);
+    return this.getState();
+  }
+
+  unburyAll(): ReviewSessionState {
+    const cards = this.state.cards.map((card) => {
+      if (!card.buriedUntil) return card;
+      const unburied = { ...card };
+      delete unburied.buriedUntil;
+      return unburied;
+    });
+    this.state = { ...this.state, cards, active: { ...EMPTY_ACTIVE_REVIEW } };
     this.deckStore.save(cards);
     return this.getState();
   }
@@ -245,8 +282,9 @@ export function getReviewSnapshot(cards: ReviewCard[], now = new Date()): Review
   return {
     queue,
     current: queue[0],
-    dueCount: cards.filter((card) => card.seen && new Date(card.dueAt) <= now).length,
-    newCount: cards.filter((card) => !card.seen).length,
+    dueCount: cards.filter((card) => !isBuried(card, now) && card.seen && new Date(card.dueAt) <= now).length,
+    newCount: cards.filter((card) => !isBuried(card, now) && !card.seen).length,
+    buriedCount: cards.filter((card) => isBuried(card, now)).length,
     totalCount: cards.length
   };
 }
@@ -271,8 +309,27 @@ function cardPayload(card: ReviewCard): ImportedCard {
     question: card.question,
     answer: card.answer,
     context: card.context,
-    explanation: card.explanation
+    explanation: card.explanation,
+    ...(card.noteId ? { noteId: card.noteId } : {})
   };
+}
+
+function buryCards(cards: ReviewCard[], predicate: (card: ReviewCard) => boolean, now: Date): ReviewCard[] {
+  const buriedUntil = nextDayStart(now).toISOString();
+  return cards.map((card) => (predicate(card) ? { ...card, buriedUntil } : card));
+}
+
+function burySiblingCards(cards: ReviewCard[], current: ReviewCard, now: Date): ReviewCard[] {
+  if (!current.noteId) return cards;
+  return buryCards(cards, (card) => card.id !== current.id && sameNote(card, current), now);
+}
+
+function sameNote(card: ReviewCard, other: ReviewCard): boolean {
+  return Boolean(card.noteId && card.noteId === other.noteId);
+}
+
+function nextDayStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
 }
 
 export function recordReviewAttempt(
