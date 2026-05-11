@@ -467,11 +467,6 @@ export default function Home() {
         </section>
       )}
 
-      <footer className="footer">
-        <button className="text-button" onClick={resetAll}>
-          Reset deck
-        </button>
-      </footer>
     </main>
   );
 }
