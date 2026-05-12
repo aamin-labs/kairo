@@ -20,7 +20,8 @@ test("snapshot exposes current card and queue counts", () => {
     [
       card({ id: "due", seen: true, dueAt: "2026-05-07T08:00:00.000Z" }),
       card({ id: "new", seen: false }),
-      card({ id: "buried", seen: false, buriedUntil: "2026-05-09T00:00:00.000Z" })
+      card({ id: "buried", seen: false, buriedUntil: "2026-05-09T00:00:00.000Z" }),
+      card({ id: "suspended", seen: false, suspended: true })
     ],
     now
   );
@@ -29,7 +30,35 @@ test("snapshot exposes current card and queue counts", () => {
   assert.equal(snapshot.dueCount, 1);
   assert.equal(snapshot.newCount, 1);
   assert.equal(snapshot.buriedCount, 1);
-  assert.equal(snapshot.totalCount, 3);
+  assert.equal(snapshot.totalCount, 4);
+});
+
+
+test("suspending a card preserves due date and removes it from review until restored", () => {
+  const session = new ReviewSession(store([card({ id: "target", seen: true, dueAt: "2026-05-07T08:00:00.000Z" })]), coach());
+  session.load();
+
+  let state = session.toggleCardSuspension("target");
+
+  assert.equal(state.cards[0].suspended, true);
+  assert.equal(state.cards[0].dueAt, "2026-05-07T08:00:00.000Z");
+  assert.equal(session.getSnapshot(now).current, undefined);
+
+  state = session.toggleCardSuspension("target");
+
+  assert.equal(state.cards[0].suspended, undefined);
+  assert.equal(session.getSnapshot(now).current?.id, "target");
+});
+
+
+test("deleting a card permanently removes it from the deck", () => {
+  const session = new ReviewSession(store([card({ id: "target" }), card({ id: "other" })]), coach());
+  session.load();
+
+  const state = session.deleteCard("target");
+
+  assert.deepEqual(state.cards.map((item) => item.id), ["other"]);
+  assert.deepEqual(session.getSnapshot(now).queue.map((item) => item.id), ["other"]);
 });
 
 test("recording Good saves attempt and schedules a new card three days out", () => {

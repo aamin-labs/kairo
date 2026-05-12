@@ -32,12 +32,12 @@ export function nextIntervalDays(card: ReviewCard, rating: Rating): number {
 
 export function dueCards(cards: ReviewCard[], now = new Date()): ReviewCard[] {
   return cards
-    .filter((card) => !isBuried(card, now) && card.seen && new Date(card.dueAt).getTime() <= now.getTime())
+    .filter((card) => isReviewable(card, now) && card.seen && new Date(card.dueAt).getTime() <= now.getTime())
     .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 }
 
 export function newCards(cards: ReviewCard[], now = new Date(), limit = 20): ReviewCard[] {
-  return cards.filter((card) => !isBuried(card, now) && !card.seen).slice(0, limit);
+  return cards.filter((card) => isReviewable(card, now) && !card.seen).slice(0, limit);
 }
 
 export function reviewQueue(cards: ReviewCard[], now = new Date(), newLimit = 20): ReviewCard[] {
@@ -46,4 +46,8 @@ export function reviewQueue(cards: ReviewCard[], now = new Date(), newLimit = 20
 
 export function isBuried(card: ReviewCard, now = new Date()): boolean {
   return Boolean(card.buriedUntil && new Date(card.buriedUntil).getTime() > now.getTime());
+}
+
+function isReviewable(card: ReviewCard, now = new Date()): boolean {
+  return !card.suspended && !isBuried(card, now);
 }

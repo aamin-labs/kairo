@@ -240,6 +240,37 @@ export class ReviewSession {
     return this.getState();
   }
 
+  toggleCardSuspension(cardId: string, now = new Date()): ReviewSessionState {
+    const current = this.currentCard(now);
+    const cards = this.state.cards.map((card) => {
+      if (card.id !== cardId) return card;
+      if (!card.suspended) return { ...card, suspended: true };
+      const restored = { ...card };
+      delete restored.suspended;
+      return restored;
+    });
+
+    this.state = {
+      ...this.state,
+      cards,
+      active: current?.id === cardId ? { ...EMPTY_ACTIVE_REVIEW } : this.state.active
+    };
+    this.deckStore.save(cards);
+    return this.getState();
+  }
+
+  deleteCard(cardId: string, now = new Date()): ReviewSessionState {
+    const current = this.currentCard(now);
+    const cards = this.state.cards.filter((card) => card.id !== cardId);
+    this.state = {
+      ...this.state,
+      cards,
+      active: current?.id === cardId ? { ...EMPTY_ACTIVE_REVIEW } : this.state.active
+    };
+    this.deckStore.save(cards);
+    return this.getState();
+  }
+
   buryCurrentNote(now = new Date()): ReviewSessionState {
     const current = this.currentCard(now);
     if (!current) return this.getState();
@@ -282,8 +313,8 @@ export function getReviewSnapshot(cards: ReviewCard[], now = new Date()): Review
   return {
     queue,
     current: queue[0],
-    dueCount: cards.filter((card) => !isBuried(card, now) && card.seen && new Date(card.dueAt) <= now).length,
-    newCount: cards.filter((card) => !isBuried(card, now) && !card.seen).length,
+    dueCount: cards.filter((card) => !card.suspended && !isBuried(card, now) && card.seen && new Date(card.dueAt) <= now).length,
+    newCount: cards.filter((card) => !card.suspended && !isBuried(card, now) && !card.seen).length,
     buriedCount: cards.filter((card) => isBuried(card, now)).length,
     totalCount: cards.length
   };

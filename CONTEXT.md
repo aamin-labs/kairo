@@ -52,6 +52,18 @@ _Avoid_: Re-import, reset, replace import
 An imported card with the same question and answer as a card already in the deck.
 _Avoid_: Repeat, copy
 
+**Buried card**:
+A card temporarily hidden from review until the next day.
+_Avoid_: Suspended card, deleted card
+
+**Suspended card**:
+A card hidden from review indefinitely until the learner restores it.
+_Avoid_: Buried card, deleted card
+
+**Deleted card**:
+A card permanently removed from the learner's deck.
+_Avoid_: Archived card, hidden card
+
 ## Relationships
 
 - **Feedback** may include one **Follow-up prompt**
@@ -95,6 +107,28 @@ _Avoid_: Repeat, copy
 - An **Append import** adds new cards and skips **Duplicate cards** without updating existing card fields
 - First-time deck import and **Append import** are separate learner actions
 - Cards added through **Append import** enter the deck as new cards eligible for immediate review
+- A **Buried card** remains in the deck and returns to review automatically the next day
+- A **Suspended card** remains in the deck but is excluded from review until restored
+- A suspended card can be restored from Browse
+- Browse toggles suspension for the selected card with `s` when focus is not in text input
+- Browse destructive and suspension actions are keyboard-driven, not shown as visible row or toolbar controls in the MVP
+- Browse keyboard actions only apply while Browse is the active view
+- Browse shows compact shortcut help for suspension and delete actions
+- Suspending a card preserves its due date and review progress
+- Suspended cards are excluded from due and new review counts
+- Browse shows **Suspended cards** by default, with the due value bracketed to mirror Anki browse behavior
+- Browse due values are `New` for unseen cards or `YYYY-MM-DD` for seen cards
+- A suspended card brackets the same due value, such as `[New]` or `[2026-05-12]`
+- Browse delete and suspend actions apply to a single card, not sibling cards from the same imported note
+- A **Deleted card** loses its scheduling, last attempt, and **Review memory**
+- Browse may delete a selected card immediately without confirmation through a deliberate keyboard shortcut
+- Browse actions apply to the selected card
+- Browse keeps selection on a visible card when search results change
+- Deleting or suspending the active review card clears the active review attempt
+- Browse lists cards with question, answer, context, and due value
+- Browse lists cards in import order by default
+- Browse supports plain text search across card content
+- The review topbar shows review-relevant counts and does not show total deck size
 
 ## Example dialogue
 
@@ -114,3 +148,4 @@ _Avoid_: Repeat, copy
 - "import" could mean replacing the deck or adding to it; resolved: **Append import** adds new cards without changing existing review progress.
 - "same card" is identified by normalized question and answer in the MVP; resolved: **Duplicate cards** are skipped during **Append import**. Normalization trims, collapses whitespace, and ignores case.
 - "duplicate" could imply updating changed context or explanation; resolved: **Duplicate cards** are skipped entirely during **Append import** in the MVP.
+- "suspend" could mean the existing temporary bury action; resolved: **Suspended card** is indefinite and reversible, while **Buried card** is temporary until the next day.

@@ -14,7 +14,7 @@ const SAMPLE_CSV = `Question,Answer,Context,Explanation
 const THEME_KEY = "kairo.theme";
 const MAX_FOLLOW_UP_REPLIES = 4;
 type Theme = "light" | "dark";
-type ActiveTab = "review" | "add";
+type ActiveTab = "review" | "add" | "browse";
 
 export default function Home() {
   const sessionRef = useRef<ReviewSession | null>(null);
@@ -40,6 +40,8 @@ export default function Home() {
   const [apiError, setApiError] = useState("");
   const [theme, setTheme] = useState<Theme>("dark");
   const [activeTab, setActiveTab] = useState<ActiveTab>("review");
+  const [browseSearch, setBrowseSearch] = useState("");
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isDeckLoaded, setIsDeckLoaded] = useState(false);
 
   useEffect(() => {
@@ -73,6 +75,18 @@ export default function Home() {
   const ratingIntervals = current ? ratingIntervalLabels(current) : undefined;
   const followUpReplyCount = coachingThread.filter((message) => message.role === "learner").length - 1;
   const canReplyToFollowUp = hasOpenFollowUpPrompt && followUpReplyCount < MAX_FOLLOW_UP_REPLIES;
+  const visibleBrowseCards = useMemo(() => filterBrowseCards(cards, browseSearch), [cards, browseSearch]);
+
+  useEffect(() => {
+    if (activeTab !== "browse") return;
+    if (visibleBrowseCards.length === 0) {
+      setSelectedCardId(null);
+      return;
+    }
+    if (!selectedCardId || !visibleBrowseCards.some((card) => card.id === selectedCardId)) {
+      setSelectedCardId(visibleBrowseCards[0].id);
+    }
+  }, [activeTab, selectedCardId, visibleBrowseCards]);
 
   const rateCard = useCallback(
     (rating: Rating) => {
@@ -101,6 +115,26 @@ export default function Home() {
     window.addEventListener("keydown", handleRatingShortcut);
     return () => window.removeEventListener("keydown", handleRatingShortcut);
   }, [current, feedback, rateCard]);
+
+  useEffect(() => {
+    function handleBrowseShortcut(event: KeyboardEvent) {
+      if (activeTab !== "browse" || !selectedCardId || isEditableTarget(event.target)) return;
+
+      if (event.key.toLowerCase() === "s" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        setSessionState(session().toggleCardSuspension(selectedCardId));
+        return;
+      }
+
+      if (event.metaKey && event.key === "Backspace") {
+        event.preventDefault();
+        setSessionState(session().deleteCard(selectedCardId));
+      }
+    }
+
+    window.addEventListener("keydown", handleBrowseShortcut);
+    return () => window.removeEventListener("keydown", handleBrowseShortcut);
+  }, [activeTab, selectedCardId]);
 
   function importCards() {
     try {
@@ -249,7 +283,6 @@ export default function Home() {
           <span><strong>{snapshot.dueCount}</strong><small>due</small></span>
           <span><strong>{snapshot.newCount}</strong><small>new</small></span>
           <span><strong>{snapshot.buriedCount}</strong><small>buried</small></span>
-          <span><strong>{snapshot.totalCount}</strong><small>total</small></span>
         </div>
       </header>
 
@@ -270,6 +303,14 @@ export default function Home() {
         >
           Add cards
         </button>
+        <button
+          type="button"
+          className={activeTab === "browse" ? "active" : ""}
+          onClick={() => setActiveTab("browse")}
+          aria-current={activeTab === "browse" ? "page" : undefined}
+        >
+          Browse
+        </button>
         {snapshot.buriedCount > 0 ? (
           <button type="button" onClick={() => setSessionState(session().unburyAll())}>
             Unbury {snapshot.buriedCount}
@@ -277,7 +318,51 @@ export default function Home() {
         ) : null}
       </nav>
 
-      {activeTab === "add" ? (
+      {activeTab === "browse" ? (
+        <section className="browse-layout" aria-label="Browse cards">
+          <div className="browse-controls">
+            <label className="answer-label" htmlFor="browse-search">
+              Search
+            </label>
+            <input
+              id="browse-search"
+              className="browse-search"
+              value={browseSearch}
+              onChange={(event) => setBrowseSearch(event.target.value)}
+              placeholder="Search question, answer, context, explanation"
+            />
+            <p className="shortcut-help">s suspend/restore · ⌘⌫ delete</p>
+          </div>
+
+          <div className="browse-table-wrap">
+            <table className="browse-table">
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Answer</th>
+                  <th>Context</th>
+                  <th>Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleBrowseCards.map((card) => (
+                  <tr
+                    key={card.id}
+                    className={card.id === selectedCardId ? "selected" : ""}
+                    onClick={() => setSelectedCardId(card.id)}
+                  >
+                    <td><SafeHtml html={card.question} /></td>
+                    <td><SafeHtml html={card.answer} /></td>
+                    <td>{card.context || "—"}</td>
+                    <td>{formatBrowseDue(card)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {visibleBrowseCards.length === 0 ? <p className="browse-empty">No cards match.</p> : null}
+          </div>
+        </section>
+      ) : activeTab === "add" ? (
         <section className="add-cards-layout" aria-label="Add cards">
           <article className="add-cards-card">
             <div className="card-meta">
@@ -390,11 +475,8 @@ export default function Home() {
                 {apiError ? <p className="error">{apiError}</p> : null}
 
                 <div className="actions">
-                  <button className="secondary" onClick={() => setSessionState(session().buryCurrentCard())}>
-                    Bury card
-                  </button>
                   <button className="secondary" onClick={() => setSessionState(session().buryCurrentNote())}>
-                    Bury note
+                    Bury
                   </button>
                   <button className="secondary" onClick={requestHint} disabled={isHinting}>
                     {isHinting ? "Hinting..." : "Hint"}
@@ -520,6 +602,20 @@ function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }
 
 function SafeHtml({ html, className }: { html: string; className?: string }) {
   return <div className={className} dangerouslySetInnerHTML={{ __html: sanitizeCardHtml(html) }} />;
+}
+
+function filterBrowseCards(cards: ReviewCard[], search: string): ReviewCard[] {
+  const query = search.trim().toLowerCase();
+  if (!query) return cards;
+
+  return cards.filter((card) =>
+    [card.question, card.answer, card.context, card.explanation].some((value) => value.toLowerCase().includes(query))
+  );
+}
+
+function formatBrowseDue(card: ReviewCard): string {
+  const due = card.seen ? card.dueAt.slice(0, 10) : "New";
+  return card.suspended ? `[${due}]` : due;
 }
 
 function ratingForShortcut(key: string): Rating | undefined {

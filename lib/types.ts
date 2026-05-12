@@ -23,6 +23,7 @@ export type ReviewCard = ImportedCard & {
   seen: boolean;
   noteId?: string;
   buriedUntil?: string;
+  suspended?: boolean;
   reviewMemory?: ReviewMemory;
   lastAttempt?: {
     answer: string;
