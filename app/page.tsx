@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sanitizeCardHtml } from "@/lib/card-html";
 import { httpCoachClient } from "@/lib/coach-client";
-import { ReviewSession, type ReviewSessionState } from "@/lib/review-session";
-import { nextIntervalDays } from "@/lib/scheduler";
+import { ratingIntervalLabels, ReviewSession, type ReviewSessionState } from "@/lib/review-session";
 import { browserDeckStore } from "@/lib/storage";
 import type { Rating, ReviewCard } from "@/lib/types";
 
@@ -623,19 +622,6 @@ function ratingForShortcut(key: string): Rating | undefined {
   if (key === "2") return "hard";
   if (key === "3") return "good";
   if (key === "4") return "easy";
-}
-
-function ratingIntervalLabels(card: ReviewCard): Record<Rating, string> {
-  return {
-    again: "10m",
-    hard: formatInterval(nextIntervalDays(card, "hard")),
-    good: formatInterval(nextIntervalDays(card, "good")),
-    easy: formatInterval(nextIntervalDays(card, "easy"))
-  };
-}
-
-function formatInterval(days: number): string {
-  return days === 1 ? "1d" : `${days}d`;
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
