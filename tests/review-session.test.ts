@@ -33,7 +33,6 @@ test("snapshot exposes current card and queue counts", () => {
   assert.equal(snapshot.totalCount, 4);
 });
 
-
 test("suspending a card preserves due date and removes it from review until restored", () => {
   const session = new ReviewSession(store([card({ id: "target", seen: true, dueAt: "2026-05-07T08:00:00.000Z" })]), coach());
   session.load();
@@ -49,7 +48,6 @@ test("suspending a card preserves due date and removes it from review until rest
   assert.equal(state.cards[0].suspended, undefined);
   assert.equal(session.getSnapshot(now).current?.id, "target");
 });
-
 
 test("deleting a card permanently removes it from the deck", () => {
   const session = new ReviewSession(store([card({ id: "target" }), card({ id: "other" })]), coach());

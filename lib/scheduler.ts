@@ -48,6 +48,6 @@ export function isBuried(card: ReviewCard, now = new Date()): boolean {
   return Boolean(card.buriedUntil && new Date(card.buriedUntil).getTime() > now.getTime());
 }
 
-function isReviewable(card: ReviewCard, now = new Date()): boolean {
+export function isReviewable(card: ReviewCard, now = new Date()): boolean {
   return !card.suspended && !isBuried(card, now);
 }

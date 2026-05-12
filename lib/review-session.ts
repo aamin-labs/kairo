@@ -1,5 +1,5 @@
 import { appendReviewDeck, importReviewDeck } from "./card-import.ts";
-import { applyRating, isBuried, reviewQueue } from "./scheduler.ts";
+import { applyRating, isBuried, isReviewable, reviewQueue } from "./scheduler.ts";
 import type {
   CoachingMessage,
   CoachingResponse,
@@ -313,8 +313,8 @@ export function getReviewSnapshot(cards: ReviewCard[], now = new Date()): Review
   return {
     queue,
     current: queue[0],
-    dueCount: cards.filter((card) => !card.suspended && !isBuried(card, now) && card.seen && new Date(card.dueAt) <= now).length,
-    newCount: cards.filter((card) => !card.suspended && !isBuried(card, now) && !card.seen).length,
+    dueCount: cards.filter((card) => isReviewable(card, now) && card.seen && new Date(card.dueAt) <= now).length,
+    newCount: cards.filter((card) => isReviewable(card, now) && !card.seen).length,
     buriedCount: cards.filter((card) => isBuried(card, now)).length,
     totalCount: cards.length
   };
